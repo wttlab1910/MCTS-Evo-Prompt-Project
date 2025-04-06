@@ -1,0 +1,40 @@
+{
+  "task_type": "extraction",
+  "templates": [
+    {
+      "name": "Basic Extraction",
+      "template": "Extract all {entity_type} from the following text:\n\n{content}\n\n{entity_type}:",
+      "format": "simple"
+    },
+    {
+      "name": "Detailed Information Extraction",
+      "template": "Role: Information Extraction Specialist\nTask: Extract all relevant information from the text according to the specified categories.\n\nSteps:\n- Carefully read and analyze the provided content\n- Identify all instances of requested information\n- Present extracted information in a structured format\n- Verify completeness and accuracy of extraction\n\nContent: {content}\n\nExtracted Information:",
+      "format": "detailed"
+    },
+    {
+      "name": "Structured Extraction",
+      "template": "Extract the following information from the text and format as JSON:\n- Names of people\n- Organizations mentioned\n- Dates and times\n- Locations\n\nText: {content}\n\nExtracted data (JSON format):",
+      "format": "structured"
+    }
+  ],
+  "examples": [
+    {
+      "input": "John Smith, CEO of TechCorp, will be speaking at the annual conference in New York on June 15, 2023. He will be joined by Sarah Johnson from Global Innovations and Professor Robert Lee from Harvard University.",
+      "entity_type": "people",
+      "expected_output": "John Smith, Sarah Johnson, Robert Lee",
+      "explanation": "All person names were correctly extracted from the text"
+    },
+    {
+      "input": "The meeting is scheduled for 10:30 AM on March 5th at the headquarters. Please bring the quarterly report and the project proposal that was finalized on January 23.",
+      "entity_type": "dates and times",
+      "expected_output": "10:30 AM on March 5th, January 23",
+      "explanation": "Both date references were correctly extracted"
+    },
+    {
+      "input": "Apple Inc. reported record earnings for Q2 2023, with revenue reaching $97.3 billion. The company's CEO Tim Cook announced plans for expansion in the Asian market, particularly in India and Singapore, starting in September.",
+      "entity_type": "financial data",
+      "expected_output": "record earnings for Q2 2023, revenue reaching $97.3 billion",
+      "explanation": "The financial figures and reporting period were correctly extracted"
+    }
+  ]
+}

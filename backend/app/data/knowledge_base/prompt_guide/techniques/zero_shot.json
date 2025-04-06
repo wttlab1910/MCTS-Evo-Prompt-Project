@@ -1,0 +1,34 @@
+{
+  "name": "Zero-Shot Prompting",
+  "description": "Zero-shot prompting means instructing the model to perform a task without providing examples or demonstrations.",
+  "key_concepts": [
+    "No examples needed",
+    "Direct instructions",
+    "Clear task specification"
+  ],
+  "examples": [
+    {
+      "task": "sentiment_classification",
+      "prompt": "Classify the text into neutral, negative or positive.\nText: I think the vacation is okay.\nSentiment:",
+      "explanation": "This prompt directly asks the model to classify without showing examples first"
+    },
+    {
+      "task": "summarization",
+      "prompt": "Summarize the following text in 2-3 sentences:\n\nThe study examined the effects of caffeine on cognitive performance in adults aged 25-45. Researchers found that moderate caffeine consumption (200-300mg) improved reaction time and short-term memory. However, they also noted that doses exceeding 400mg produced diminishing returns and increased anxiety in some participants. The study concluded that the optimal cognitive benefits occur at different dosages depending on individual factors such as body weight and caffeine tolerance.",
+      "explanation": "This prompt instructs the model to summarize without providing examples of good summaries"
+    },
+    {
+      "task": "code_generation",
+      "prompt": "Write a Python function that takes a list of numbers and returns the sum of all even numbers in the list.",
+      "explanation": "This prompt directly requests code generation without examples of what good output looks like"
+    }
+  ],
+  "best_practices": [
+    "Be clear and specific about the task",
+    "Specify the expected output format", 
+    "Include relevant constraints or considerations",
+    "Structure the prompt with clear separation between instructions and input data",
+    "Use imperative language (Classify, Summarize, Generate, etc.)"
+  ],
+  "template": "Classify the following text as {categories}.\nText: {content}\nClassification:"
+}

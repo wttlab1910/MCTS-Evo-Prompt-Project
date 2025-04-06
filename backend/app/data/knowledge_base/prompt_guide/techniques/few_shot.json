@@ -1,0 +1,30 @@
+{
+  "name": "Few-Shot",
+  "description": "Few-shot prompting involves providing a small number of examples to demonstrate the desired output format and reasoning before asking the model to perform a task on new data.",
+  "key_concepts": [
+    "Learning from examples",
+    "Demonstration-based learning", 
+    "Pattern recognition",
+    "Input-output format consistency"
+  ],
+  "examples": [
+    {
+      "task": "classification",
+      "prompt": "Classify the sentiment of each review as positive, negative, or neutral.\n\nReview: The food was delicious and the service was excellent.\nSentiment: Positive\n\nReview: The room was okay but the bathroom needed cleaning.\nSentiment: Neutral\n\nReview: We waited for an hour and the staff was rude.\nSentiment: Negative\n\nReview: I think the vacation is okay.\nSentiment:",
+      "explanation": "This prompt demonstrates three examples of sentiment classification before asking for the new classification"
+    },
+    {
+      "task": "entity_extraction",
+      "prompt": "Extract all person names from the text.\n\nText: President Biden spoke with Chancellor Merkel yesterday about the upcoming summit.\nPerson names: Biden, Merkel\n\nText: Tesla CEO Elon Musk announced new features for the Model S.\nPerson names: Elon Musk\n\nText: John visited Paris with his friend Sarah in June.\nPerson names:",
+      "explanation": "This prompt shows two examples of entity extraction before requesting extraction from the new text"
+    }
+  ],
+  "best_practices": [
+    "Use consistent formatting across examples",
+    "Include diverse examples covering different cases",
+    "Provide sufficient context in examples to demonstrate the task",
+    "Arrange examples from simple to complex when possible",
+    "Ensure the format of examples matches exactly what you want in the output"
+  ],
+  "template": "Here are some examples of how to {task}:\n\n{examples}\n\nNow, please {task} for the following:\n\n{content}\n\nOutput:"
+}
