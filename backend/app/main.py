@@ -4,7 +4,13 @@ Application entry point.
 import argparse
 from app.api.routes import create_app
 from app.config import API_CONFIG
-
+from fastapi import FastAPI # type: ignore
+from fastapi.middleware.cors import CORSMiddleware # type: ignore
+from app.api.routes import router as api_router
+from app.api.middleware.logging import LoggingMiddleware
+from app.config import API_PREFIX
+from app.utils.logger import setup_logging
+ 
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="MCTS-Evo-Prompt Server")

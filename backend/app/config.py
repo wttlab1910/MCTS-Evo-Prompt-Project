@@ -26,7 +26,8 @@ OPTIMIZATIONS_CACHE_DIR = CACHE_DIR / "optimizations"
 
 # Log directory
 LOG_DIR = DATA_DIR / "logs"
-
+MODELS_DIR = DATA_DIR / "models"
+PROMPT_EXPANSION_MODEL_PATH = MODELS_DIR / "prompt_expansion_model.pt"
 # LLM configuration
 LLM_CONFIG = {
     "default_provider": "ollama",  # Changed to ollama as default
@@ -102,6 +103,7 @@ def create_directories():
         PROMPTS_CACHE_DIR,
         RESPONSES_CACHE_DIR,
         OPTIMIZATIONS_CACHE_DIR,
+        MODELS_DIR, 
         LOG_DIR
     ]
     
