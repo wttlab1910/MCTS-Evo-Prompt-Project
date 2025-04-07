@@ -1,35 +1,66 @@
 """
-Authentication middleware for API routes.
+Authentication middleware.
 """
-from fastapi import Request, HTTPException, Depends
-from fastapi.security import APIKeyHeader
-from starlette.status import HTTP_403_FORBIDDEN
-from app.config import AUTH_REQUIRED, AUTH_TOKEN
+from typing import Callable, Dict, Any
+from fastapi import Request, Response, HTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp
+import os
 from app.utils.logger import get_logger
 
-logger = get_logger("middleware.auth")
+logger = get_logger("api.middleware.auth")
 
-api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
-
-async def verify_api_key(request: Request, api_key: str = Depends(api_key_header)):
+class AuthMiddleware(BaseHTTPMiddleware):
     """
-    Verify API key for protected routes.
+    Middleware for API authentication.
     
-    Args:
-        request: The incoming request.
-        api_key: API key from the header.
-        
-    Raises:
-        HTTPException: If authentication fails.
+    This middleware implements a simple API key authentication mechanism.
     """
-    if not AUTH_REQUIRED:
-        return True
+    
+    def __init__(self, app: ASGIApp):
+        """
+        Initialize the authentication middleware.
         
-    if api_key != AUTH_TOKEN:
-        logger.warning(f"Invalid API key attempt: {api_key}")
-        raise HTTPException(
-            status_code=HTTP_403_FORBIDDEN,
-            detail="Invalid API key"
-        )
+        Args:
+            app: ASGI application.
+        """
+        super().__init__(app)
+        self.api_key = os.environ.get("API_KEY", "")
+        self.skip_auth = not self.api_key
         
-    return True
+        if self.skip_auth:
+            logger.warning("API key not set. Authentication is disabled.")
+        else:
+            logger.info("Authentication middleware initialized.")
+    
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        """
+        Process the request.
+        
+        Args:
+            request: HTTP request.
+            call_next: Next middleware or route handler.
+            
+        Returns:
+            HTTP response.
+        """
+        # Skip authentication if API key is not set
+        if self.skip_auth:
+            return await call_next(request)
+        
+        # Skip authentication for health check
+        if request.url.path == "/health":
+            return await call_next(request)
+        
+        # Get API key from header or query parameter
+        api_key = request.headers.get("X-API-Key")
+        if not api_key:
+            api_key = request.query_params.get("api_key")
+        
+        # Validate API key
+        if not api_key or api_key != self.api_key:
+            logger.warning(f"Unauthorized access attempt from {request.client.host}")
+            raise HTTPException(status_code=401, detail="Invalid or missing API key")
+        
+        # Proceed with the request
+        return await call_next(request)

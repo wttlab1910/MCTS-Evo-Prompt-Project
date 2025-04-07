@@ -1,175 +1,147 @@
 """
-Cache management utility for MCTS-Evo-Prompt system.
+Cache management utility.
 """
-import json
+from typing import Dict, Any, List, Optional, Union, Callable, TypeVar, Generic
 import time
-import os
-from pathlib import Path
-from functools import wraps
-from app.config import CACHE_DIR, CACHE_ENABLED, CACHE_EXPIRATION
+import functools
 from app.utils.logger import get_logger
-from app.utils.serialization import dumps, loads
 
-logger = get_logger("cache")
+logger = get_logger("utils.cache")
 
-class Cache:
+T = TypeVar('T')
+K = TypeVar('K')
+V = TypeVar('V')
+
+class MemoryCache(Generic[K, V]):
     """
-    Simple file-based cache implementation.
+    Simple in-memory cache with expiration.
     """
     
-    def __init__(self, directory=CACHE_DIR, expiration=CACHE_EXPIRATION):
+    def __init__(self, expiration: int = 3600):
         """
-        Initialize cache.
+        Initialize the cache.
         
         Args:
-            directory: Directory to store cache files.
-            expiration: Cache expiration time in seconds.
+            expiration: Cache expiration time in seconds (default: 1 hour).
         """
-        self.directory = Path(directory)
+        self.cache: Dict[K, Dict[str, Any]] = {}
         self.expiration = expiration
-        self.directory.mkdir(exist_ok=True, parents=True)
         
-    def get(self, key, default=None):
+        logger.debug(f"Initialized MemoryCache with expiration={expiration}s")
+    
+    def get(self, key: K) -> Optional[V]:
         """
-        Get value from cache.
+        Get a value from the cache.
         
         Args:
             key: Cache key.
-            default: Default value if key not found.
             
         Returns:
-            Cached value or default.
+            Cached value or None if not found or expired.
         """
-        if not CACHE_ENABLED:
-            return default
-            
-        cache_file = self._get_cache_file(key)
+        if key not in self.cache:
+            return None
         
-        if not cache_file.exists():
-            return default
-            
-        try:
-            with open(cache_file, 'r') as f:
-                data = json.load(f)
-                
-            # Check if cache has expired
-            if time.time() - data['timestamp'] > self.expiration:
-                logger.debug(f"Cache expired for key: {key}")
-                self.delete(key)
-                return default
-                
-            logger.debug(f"Cache hit for key: {key}")
-            return loads(data['value'])
-        except Exception as e:
-            logger.warning(f"Error reading cache for key {key}: {e}")
-            return default
-            
-    def set(self, key, value):
+        entry = self.cache[key]
+        
+        # Check expiration
+        if entry["expires"] < time.time():
+            self.cache.pop(key)
+            return None
+        
+        return entry["value"]
+    
+    def set(self, key: K, value: V, expiration: Optional[int] = None) -> None:
         """
-        Set value in cache.
+        Store a value in the cache.
         
         Args:
             key: Cache key.
             value: Value to cache.
+            expiration: Custom expiration time in seconds.
         """
-        if not CACHE_ENABLED:
-            return
-            
-        cache_file = self._get_cache_file(key)
+        expires = time.time() + (expiration if expiration is not None else self.expiration)
         
-        try:
-            data = {
-                'timestamp': time.time(),
-                'value': dumps(value)
-            }
-            
-            with open(cache_file, 'w') as f:
-                json.dump(data, f)
-                
-            logger.debug(f"Cache set for key: {key}")
-        except Exception as e:
-            logger.warning(f"Error setting cache for key {key}: {e}")
-            
-    def delete(self, key):
+        self.cache[key] = {
+            "value": value,
+            "expires": expires
+        }
+    
+    def delete(self, key: K) -> bool:
         """
-        Delete value from cache.
-        
-        Args:
-            key: Cache key.
-        """
-        if not CACHE_ENABLED:
-            return
-            
-        cache_file = self._get_cache_file(key)
-        
-        if cache_file.exists():
-            try:
-                os.remove(cache_file)
-                logger.debug(f"Cache deleted for key: {key}")
-            except Exception as e:
-                logger.warning(f"Error deleting cache for key {key}: {e}")
-                
-    def clear(self):
-        """
-        Clear all cache entries.
-        """
-        if not CACHE_ENABLED:
-            return
-            
-        for file in self.directory.glob("*.cache"):
-            try:
-                os.remove(file)
-            except Exception as e:
-                logger.warning(f"Error clearing cache file {file}: {e}")
-                
-        logger.info("Cache cleared")
-        
-    def _get_cache_file(self, key):
-        """
-        Get cache file path for key.
+        Delete a key from the cache.
         
         Args:
             key: Cache key.
             
         Returns:
-            Path to cache file.
+            True if key was deleted, False if not found.
         """
-        # Create a filename-safe representation of the key
-        safe_key = "".join(c if c.isalnum() else "_" for c in str(key))
-        return self.directory / f"{safe_key}.cache"
+        if key in self.cache:
+            self.cache.pop(key)
+            return True
+        
+        return False
+    
+    def clear(self) -> None:
+        """
+        Clear all entries from the cache.
+        """
+        self.cache.clear()
+    
+    def cleanup(self) -> int:
+        """
+        Remove expired entries from the cache.
+        
+        Returns:
+            Number of entries removed.
+        """
+        now = time.time()
+        expired_keys = [k for k, v in self.cache.items() if v["expires"] < now]
+        
+        for key in expired_keys:
+            self.cache.pop(key)
+        
+        return len(expired_keys)
 
-# Global cache instance
-cache = Cache()
 
-def cached(expiration=None):
+def memoize(expiration: int = 3600):
     """
-    Decorator for caching function results.
+    Decorator for memoizing function results.
     
     Args:
-        expiration: Cache expiration time in seconds.
+        expiration: Cache expiration time in seconds (default: 1 hour).
         
     Returns:
         Decorated function.
     """
-    def decorator(func):
-        @wraps(func)
+    cache = MemoryCache(expiration=expiration)
+    
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            if not CACHE_ENABLED:
-                return func(*args, **kwargs)
-                
-            # Create a unique key based on function name and arguments
-            key = f"{func.__module__}.{func.__name__}:{str(args)}:{str(kwargs)}"
+            # Create a key from the function name and arguments
+            key_parts = [func.__name__]
+            key_parts.extend(str(arg) for arg in args)
+            key_parts.extend(f"{k}={v}" for k, v in sorted(kwargs.items()))
+            key = hash(tuple(key_parts))
             
-            # Try to get from cache
+            # Check cache
             result = cache.get(key)
+            if result is not None:
+                return result
             
-            if result is None:
-                # Cache miss, execute function
-                result = func(*args, **kwargs)
-                
-                # Store in cache
-                cache.set(key, result)
-                
+            # Call function
+            result = func(*args, **kwargs)
+            
+            # Store in cache
+            cache.set(key, result)
+            
             return result
+            
         return wrapper
+    
     return decorator
+
+# Add cached as an alias for memoize for backward compatibility
+cached = memoize

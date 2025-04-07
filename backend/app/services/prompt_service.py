@@ -1,35 +1,54 @@
 """
-Service for prompt processing and optimization.
+Prompt service for handling prompt operations.
 """
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, List, Optional, Union
+import asyncio
 from app.core.input.prompt_separator import PromptSeparator
 from app.core.input.task_analyzer import TaskAnalyzer
 from app.core.input.prompt_expander import PromptExpander
-from app.core.input.model_trainer import PromptModelTrainer
+from app.llm.interface import LLMFactory
+from app.llm.evaluation.validator import ResponseValidator
+from app.config import LLM_CONFIG
 from app.utils.logger import get_logger
-from app.utils.timer import timed
-from app.config import PROMPT_EXPANSION_MODEL_PATH
+from app.utils.timer import Timer
 
-logger = get_logger("services.prompt")
+logger = get_logger("services.prompt_service")
 
 class PromptService:
     """
-    Service for prompt-related operations.
+    Service for prompt operations.
+    
+    This service handles prompt separation, analysis, expansion, and evaluation.
     """
     
     def __init__(self):
-        """
-        Initialize the prompt service.
-        """
+        """Initialize the prompt service."""
         self.separator = PromptSeparator()
         self.analyzer = TaskAnalyzer()
         self.expander = PromptExpander()
-        self.model_trainer = None  # Lazy initialization
-        self.use_model = PROMPT_EXPANSION_MODEL_PATH.exists()
         
-        logger.info("Prompt service initialized")
+        # Initialize LLM interface
+        self._init_llm()
+        
+        logger.info("Prompt service initialized.")
     
-    @timed
+    def _init_llm(self):
+        """Initialize LLM interface."""
+        provider = LLM_CONFIG["default_provider"]
+        provider_config = LLM_CONFIG["providers"][provider]
+        
+        try:
+            self.llm = LLMFactory.create(
+                provider=provider,
+                model_id=provider_config["model_id"],
+                **provider_config
+            )
+            
+            logger.info(f"Using {provider} LLM: {provider_config['model_id']}")
+        except Exception as e:
+            logger.error(f"Failed to initialize LLM: {e}")
+            self.llm = None
+    
     def process_input(self, input_text: str) -> Dict[str, Any]:
         """
         Process input text to separate prompt and data, analyze task, and expand prompt.
@@ -40,93 +59,123 @@ class PromptService:
         Returns:
             Dictionary with processed information.
         """
-        # Separate prompt and data
-        prompt, data = self.separator.separate(input_text)
-        
-        # Analyze the task
-        task_analysis = self.analyzer.analyze(prompt)
-        
-        # Add prompt to task analysis for future use
-        task_analysis["prompt"] = prompt
-        
-        # Expand the prompt
-        expanded_prompt = self.expand_prompt(prompt, task_analysis.get("task_type"))
-        
-        # Combine results
-        result = {
-            "original_input": input_text,
-            "prompt": prompt,
-            "data": data,
-            "task_analysis": task_analysis,
-            "expanded_prompt": expanded_prompt
-        }
-        
-        return result
+        with Timer("prompt_service.process_input", log_level="debug"):
+            # Separate prompt and data
+            prompt, data = self.separator.separate(input_text)
+            
+            # Analyze the task
+            task_analysis = self.analyzer.analyze(prompt)
+            task_analysis["prompt"] = prompt
+            
+            # Expand the prompt
+            expanded_prompt = self.expand_prompt(prompt, task_analysis.get("task_type"))
+            
+            # Combine results
+            return {
+                "original_input": input_text,
+                "prompt": prompt,
+                "data": data,
+                "task_analysis": task_analysis,
+                "expanded_prompt": expanded_prompt
+            }
     
-    @timed
-    def expand_prompt(self, prompt: str, task_type: str = None) -> str:
+    def expand_prompt(self, prompt: str, task_type: Optional[str] = None) -> str:
         """
-        Expand a prompt using model or rule-based approach.
+        Expand a prompt using prompt engineering techniques.
         
         Args:
-            prompt: Prompt text to expand.
-            task_type: Optional task type override.
+            prompt: Input prompt.
+            task_type: Type of task (optional).
             
         Returns:
             Expanded prompt.
         """
-        # Try model-based expansion if available
-        if self.use_model:
-            try:
-                if self.model_trainer is None:
-                    self.model_trainer = PromptModelTrainer()
-                
-                expanded_prompt = self.model_trainer.expand_prompt(prompt)
-                logger.debug("Expanded prompt using trained model")
-                return expanded_prompt
-            except Exception as e:
-                logger.warning(f"Model-based expansion failed, falling back to rule-based: {e}")
-                self.use_model = False
-        
-        # Fallback to rule-based expansion
-        # Analyze the task if task_type not provided
-        if task_type is None:
-            task_analysis = self.analyzer.analyze(prompt)
-            task_type = task_analysis["task_type"]
-        else:
-            task_analysis = {"task_type": task_type, "prompt": prompt}
-        
-        # Add prompt to task analysis for future use
-        task_analysis["prompt"] = prompt
-        
-        # Expand the prompt
-        expanded_prompt = self.expander.expand(prompt, task_analysis)
-        
-        return expanded_prompt
+        with Timer("prompt_service.expand_prompt", log_level="debug"):
+            # Create task analysis if not available
+            task_analysis = None
+            if task_type:
+                task_analysis = {
+                    "task_type": task_type,
+                    "task_confidence": 1.0,
+                    "prompt": prompt
+                }
+            else:
+                task_analysis = self.analyzer.analyze(prompt)
+                task_analysis["prompt"] = prompt
+            
+            # Expand the prompt
+            return self.expander.expand(prompt, task_analysis)
     
-    @timed
-    def train_expansion_model(self, epochs=3, batch_size=8):
+    async def evaluate_prompt(self, 
+                            prompt: str, 
+                            task_type: Optional[str] = None,
+                            data: Optional[str] = None,
+                            expected_output: Optional[str] = None) -> Dict[str, Any]:
         """
-        Train the prompt expansion model.
+        Evaluate a prompt's quality.
         
         Args:
-            epochs: Number of training epochs.
-            batch_size: Batch size for training.
+            prompt: Input prompt.
+            task_type: Type of task (optional).
+            data: Input data (optional).
+            expected_output: Expected output (optional).
             
         Returns:
-            Success status message.
+            Evaluation results.
         """
-        try:
-            if self.model_trainer is None:
-                self.model_trainer = PromptModelTrainer()
+        with Timer("prompt_service.evaluate_prompt", log_level="debug"):
+            # Ensure LLM is initialized
+            if not self.llm:
+                self._init_llm()
+                if not self.llm:
+                    raise RuntimeError("LLM interface could not be initialized")
             
-            model_path = self.model_trainer.train(epochs=epochs, batch_size=batch_size)
+            # Create complete input with data if provided
+            complete_input = prompt
+            if data:
+                complete_input = f"{prompt}\n\n{data}"
             
-            if model_path:
-                self.use_model = True
-                return {"status": "success", "message": f"Model trained and saved to {model_path}"}
-            else:
-                return {"status": "error", "message": "Model training failed"}
-        except Exception as e:
-            logger.error(f"Error training expansion model: {e}")
-            return {"status": "error", "message": f"Error training model: {str(e)}"}
+            # Generate response from LLM
+            response = await self.llm.generate(complete_input)
+            
+            # Create validator
+            validator = ResponseValidator(task_type)
+            
+            # Validate response
+            validation = validator.validate(response, expected_output)
+            
+            # Add additional metrics
+            metrics = {
+                "prompt_length": len(prompt),
+                "data_length": len(data) if data else 0,
+                "response_length": len(response.get("text", "")),
+                "elapsed_time": response.get("elapsed_time", 0)
+            }
+            
+            # Combine results
+            return {
+                "prompt": prompt,
+                "task_type": task_type,
+                "response": response.get("text", ""),
+                "validation": validation,
+                "metrics": metrics
+            }
+    
+    def evaluate_prompt_sync(self, 
+                           prompt: str, 
+                           task_type: Optional[str] = None,
+                           data: Optional[str] = None,
+                           expected_output: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Synchronous version of evaluate_prompt.
+        
+        Args:
+            prompt: Input prompt.
+            task_type: Type of task (optional).
+            data: Input data (optional).
+            expected_output: Expected output (optional).
+            
+        Returns:
+            Evaluation results.
+        """
+        return asyncio.run(self.evaluate_prompt(prompt, task_type, data, expected_output))

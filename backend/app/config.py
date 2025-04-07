@@ -1,54 +1,161 @@
 """
-Configuration management for MCTS-Evo-Prompt system.
-Handles environment variables, system settings, and configuration parameters.
+Configuration management for the application.
 """
 import os
 from pathlib import Path
-from dotenv import load_dotenv # type: ignore
+from typing import Dict, Any, Optional
+import json
 
-# Load environment variables from .env file
-load_dotenv()
-
-# Base paths
-BASE_DIR = Path(__file__).resolve().parent
+# Base directories
+BASE_DIR = Path(__file__).resolve().parent.parent
+APP_DIR = BASE_DIR / "app"
 DATA_DIR = BASE_DIR / "data"
+
+# Knowledge base directories
 KNOWLEDGE_BASE_DIR = DATA_DIR / "knowledge_base"
+DOMAIN_KNOWLEDGE_DIR = KNOWLEDGE_BASE_DIR / "domain_knowledge"
+ERROR_PATTERNS_DIR = KNOWLEDGE_BASE_DIR / "error_patterns"
+PROMPT_TEMPLATES_DIR = KNOWLEDGE_BASE_DIR / "prompt_templates"
+PROMPT_GUIDE_DIR = KNOWLEDGE_BASE_DIR / "prompt_guide"
+
+# Cache directories
 CACHE_DIR = DATA_DIR / "cached"
+PROMPTS_CACHE_DIR = CACHE_DIR / "prompts"
+RESPONSES_CACHE_DIR = CACHE_DIR / "responses"
+OPTIMIZATIONS_CACHE_DIR = CACHE_DIR / "optimizations"
+
+# Log directory
 LOG_DIR = DATA_DIR / "logs"
 
-# Create directories if they don't exist
-for directory in [DATA_DIR, KNOWLEDGE_BASE_DIR, CACHE_DIR, LOG_DIR]:
-    directory.mkdir(exist_ok=True, parents=True)
+# LLM configuration
+LLM_CONFIG = {
+    "default_provider": "ollama",  # Changed to ollama as default
+    "providers": {
+        # "mistral": {
+        #     "model_id": "mistralai/Mistral-7B-Instruct-v0.2",
+        #     "max_tokens": 2048,
+        #     "temperature": 0.7,
+        #     "timeout": 30,
+        #     "local_path": None,  # Set path if using local model
+        # },
+        # "gemma": {
+        #     "model_id": "google/gemma-7b-it",
+        #     "max_tokens": 2048,
+        #     "temperature": 0.7,
+        #     "timeout": 30,
+        #     "local_path": None,  # Set path if using local model
+        # },
+        "ollama": {
+            "model_id": "mistral",  # Default Ollama model
+            "api_base": "http://localhost:11434",
+            "max_tokens": 2048,
+            "temperature": 0.7,
+            "timeout": 300
+        },
+        "ollama_gemma3": {
+            "provider": "ollama",
+            "model_id": "gemma3:12b",
+            "api_base": "http://localhost:11434",
+            "max_tokens": 2048,
+            "temperature": 0.7,
+            "timeout": 300
+        },
+        "ollama_deepseek": {
+            "provider": "ollama",
+            "model_id": "deepseek-r1:32b",
+            "api_base": "http://localhost:11434",
+            "max_tokens": 2048,
+            "temperature": 0.7,
+            "timeout": 300
+        }
+    },
+    "batch_size": 5,
+    "max_retries": 3,
+    "retry_delay": 2,
+    "cache_enabled": True
+}
 
-# API settings
-API_PREFIX = "/api/v1"
-API_HOST = os.getenv("API_HOST", "0.0.0.0")
-API_PORT = int(os.getenv("API_PORT", "8000"))
+# API configuration
+API_CONFIG = {
+    "host": "127.0.0.1",
+    "port": 8000,
+    "debug": True,
+    "reload": True,
+    "workers": 1,
+    "timeout": 60
+}
 
-# Authentication settings
-AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "False").lower() == "true"
-AUTH_TOKEN = os.getenv("AUTH_TOKEN", "")
+# Create directory structure if it doesn't exist
+def create_directories():
+    """Create the application directory structure if it doesn't exist."""
+    directories = [
+        DATA_DIR,
+        KNOWLEDGE_BASE_DIR,
+        DOMAIN_KNOWLEDGE_DIR,
+        ERROR_PATTERNS_DIR,
+        PROMPT_TEMPLATES_DIR,
+        PROMPT_GUIDE_DIR,
+        PROMPT_GUIDE_DIR / "techniques",
+        PROMPT_GUIDE_DIR / "templates",
+        PROMPT_GUIDE_DIR / "examples",
+        CACHE_DIR,
+        PROMPTS_CACHE_DIR,
+        RESPONSES_CACHE_DIR,
+        OPTIMIZATIONS_CACHE_DIR,
+        LOG_DIR
+    ]
+    
+    for directory in directories:
+        directory.mkdir(parents=True, exist_ok=True)
 
-# LLM settings
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "huggingface")
-LLM_MODEL = os.getenv("LLM_MODEL", "gemma-7b")
-LLM_API_KEY = os.getenv("LLM_API_KEY", "")
+# Load environment-specific configuration
+def load_env_config(env: str = None) -> Dict[str, Any]:
+    """
+    Load environment-specific configuration.
+    
+    Args:
+        env: Environment name (development, production, etc.)
+        
+    Returns:
+        Dictionary with configuration values.
+    """
+    if env is None:
+        env = os.environ.get("APP_ENV", "development")
+        
+    config_file = BASE_DIR / f"config.{env}.json"
+    
+    if config_file.exists():
+        with open(config_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+    
+    return {}
 
-# Optimization settings
-MAX_ITERATIONS = int(os.getenv("MAX_ITERATIONS", "50"))
-EXPLORATION_CONSTANT = float(os.getenv("EXPLORATION_CONSTANT", "1.4142"))
-MUTATION_RATE = float(os.getenv("MUTATION_RATE", "0.2"))
-CROSSOVER_RATE = float(os.getenv("CROSSOVER_RATE", "0.2"))
+# Override default configuration with environment-specific values
+def update_config(config: Dict[str, Any], env_config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Update default configuration with environment-specific values.
+    
+    Args:
+        config: Default configuration dictionary.
+        env_config: Environment-specific configuration dictionary.
+        
+    Returns:
+        Updated configuration dictionary.
+    """
+    for key, value in env_config.items():
+        if isinstance(value, dict) and key in config and isinstance(config[key], dict):
+            config[key] = update_config(config[key], value)
+        else:
+            config[key] = value
+            
+    return config
 
-# Cache settings
-CACHE_ENABLED = os.getenv("CACHE_ENABLED", "True").lower() == "true"
-CACHE_EXPIRATION = int(os.getenv("CACHE_EXPIRATION", "3600"))  # In seconds
+# Initialize configuration
+ENV_CONFIG = load_env_config()
+if "LLM_CONFIG" in ENV_CONFIG:
+    LLM_CONFIG = update_config(LLM_CONFIG, ENV_CONFIG["LLM_CONFIG"])
+if "API_CONFIG" in ENV_CONFIG:
+    API_CONFIG = update_config(API_CONFIG, ENV_CONFIG["API_CONFIG"])
 
-# Logging settings
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-LOG_TO_FILE = os.getenv("LOG_TO_FILE", "True").lower() == "true"
-LOG_FILE = LOG_DIR / "mcts_evo_prompt.log"
-
-# Prompt Engineering Guide settings - for training the prompt expansion model
-PROMPT_GUIDE_DIR = KNOWLEDGE_BASE_DIR / "prompt_guide"
-PROMPT_EXPANSION_MODEL_PATH = KNOWLEDGE_BASE_DIR / "models" / "prompt_expansion"
+# Create directories on module import
+create_directories()

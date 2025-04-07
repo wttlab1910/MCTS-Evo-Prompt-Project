@@ -1,52 +1,51 @@
 """
-Main entry point for the MCTS-Evo-Prompt application.
+Application entry point.
 """
-from fastapi import FastAPI # type: ignore
-from fastapi.middleware.cors import CORSMiddleware # type: ignore
-from app.api.routes import router as api_router
-from app.api.middleware.logging import LoggingMiddleware
-from app.config import API_PREFIX
-from app.utils.logger import setup_logging
+import argparse
+from app.api.routes import create_app
+from app.config import API_CONFIG
 
-# Setup logging
-logger = setup_logging()
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description="MCTS-Evo-Prompt Server")
+    parser.add_argument(
+        "--host", default=API_CONFIG["host"],
+        help=f"Host address (default: {API_CONFIG['host']})"
+    )
+    parser.add_argument(
+        "--port", type=int, default=API_CONFIG["port"],
+        help=f"Port number (default: {API_CONFIG['port']})"
+    )
+    parser.add_argument(
+        "--debug", action="store_true", default=API_CONFIG["debug"],
+        help="Enable debug mode"
+    )
+    parser.add_argument(
+        "--reload", action="store_true", default=API_CONFIG["reload"],
+        help="Enable auto-reload on code changes"
+    )
+    parser.add_argument(
+        "--workers", type=int, default=API_CONFIG["workers"],
+        help=f"Number of worker processes (default: {API_CONFIG['workers']})"
+    )
+    
+    return parser.parse_args()
 
-# Create FastAPI app
-app = FastAPI(
-    title="MCTS-Evo-Prompt",
-    description="Strategic Planning Framework for Expert-Level Prompt Optimization",
-    version="1.0.0",
-)
-
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Set to specific origins in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Add logging middleware
-app.add_middleware(LoggingMiddleware)
-
-# Register API routes
-app.include_router(api_router, prefix=API_PREFIX)
-
-@app.get("/")
-async def root():
-    """
-    Root endpoint for the API.
-    """
-    return {
-        "message": "Welcome to MCTS-Evo-Prompt API",
-        "version": "1.0.0",
-        "docs_url": "/docs",
-    }
+def main():
+    """Run the application server."""
+    args = parse_args()
+    
+    app = create_app()
+    
+    import uvicorn
+    uvicorn.run(
+        app,
+        host=args.host,
+        port=args.port,
+        debug=args.debug,
+        reload=args.reload,
+        workers=args.workers
+    )
 
 if __name__ == "__main__":
-    import uvicorn # type: ignore
-    from app.config import API_HOST, API_PORT
-
-    logger.info(f"Starting MCTS-Evo-Prompt API on {API_HOST}:{API_PORT}")
-    uvicorn.run("app.main:app", host=API_HOST, port=API_PORT, reload=True)
+    main()

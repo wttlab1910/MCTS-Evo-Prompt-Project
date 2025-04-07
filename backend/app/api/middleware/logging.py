@@ -1,79 +1,72 @@
 """
 Logging middleware for API requests and responses.
 """
+from typing import Callable
 import time
-import json
-from fastapi import Request
+import uuid
+from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
+from starlette.types import ASGIApp
 from app.utils.logger import get_logger
 
-logger = get_logger("middleware.logging")
+logger = get_logger("api.middleware.logging")
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     """
-    Middleware for logging requests and responses.
+    Middleware for request/response logging.
+    
+    This middleware logs information about incoming requests and outgoing responses.
     """
     
-    async def dispatch(self, request: Request, call_next):
+    def __init__(self, app: ASGIApp):
         """
-        Process an incoming request and log details.
+        Initialize the logging middleware.
         
         Args:
-            request: The incoming request.
-            call_next: Function to call the next middleware or route handler.
+            app: ASGI application.
+        """
+        super().__init__(app)
+        logger.info("Logging middleware initialized.")
+    
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        """
+        Process the request.
+        
+        Args:
+            request: HTTP request.
+            call_next: Next middleware or route handler.
             
         Returns:
-            Response from the next middleware or route handler.
+            HTTP response.
         """
+        # Generate request ID
+        request_id = str(uuid.uuid4())
+        
         # Log request
         start_time = time.time()
+        logger.info(f"Request {request_id}: {request.method} {request.url.path}")
         
-        # Get request body
-        request_body = b""
-        if request.method in ["POST", "PUT", "PATCH"]:
-            request_body = await request.body()
-            # Store the body so it can be read again by the route handler
-            await request._body_reset(request_body)
-            
-        # Try to parse and log request body
-        try:
-            if request_body:
-                body = json.loads(request_body)
-                # Truncate large request bodies
-                if isinstance(body, dict) and len(str(body)) > 1000:
-                    body = {k: (str(v)[:100] + "..." if len(str(v)) > 100 else v) for k, v in body.items()}
-            else:
-                body = None
-        except Exception:
-            body = "<non-JSON body>"
-            
-        # Log request details
-        logger.info(
-            f"Request: {request.method} {request.url.path} "
-            f"Params: {dict(request.query_params)} "
-            f"Body: {body}"
-        )
-        
-        # Process request and get response
+        # Process request
         try:
             response = await call_next(request)
-        except Exception as e:
-            # Log exception
-            logger.error(f"Request failed: {str(e)}")
-            raise
             
-        # Calculate processing time
-        process_time = time.time() - start_time
-        
-        # Log response
-        logger.info(
-            f"Response: {request.method} {request.url.path} "
-            f"Status: {response.status_code} "
-            f"Time: {process_time:.4f}s"
-        )
-        
-        # Add processing time header
-        response.headers["X-Process-Time"] = str(process_time)
-        
-        return response
+            # Log response
+            process_time = time.time() - start_time
+            logger.info(
+                f"Response {request_id}: {response.status_code} "
+                f"(took {process_time:.3f}s)"
+            )
+            
+            # Add custom headers
+            response.headers["X-Request-ID"] = request_id
+            response.headers["X-Process-Time"] = str(process_time)
+            
+            return response
+        except Exception as e:
+            # Log error
+            process_time = time.time() - start_time
+            logger.error(
+                f"Error {request_id}: {str(e)} "
+                f"(took {process_time:.3f}s)"
+            )
+            raise

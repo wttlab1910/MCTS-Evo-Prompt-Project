@@ -1,64 +1,55 @@
 """
-Logging utility for MCTS-Evo-Prompt system.
+Logging utility.
 """
+import os
 import logging
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-import os
+from app.config import LOG_DIR
 
-# 设置默认日志级别和位置
-LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
-LOG_TO_FILE = os.environ.get("LOG_TO_FILE", "False").lower() == "true"
-LOG_DIR = Path("logs")
-LOG_FILE = LOG_DIR / "mcts_evo_prompt.log"
+# Create logs directory if it doesn't exist
+os.makedirs(LOG_DIR, exist_ok=True)
 
-def setup_logging():
+# Configure logging format
+LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+
+# Maximum log file size (10 MB)
+MAX_LOG_SIZE = 10 * 1024 * 1024
+# Number of backup files
+BACKUP_COUNT = 5
+
+def get_logger(name: str) -> logging.Logger:
     """
-    Set up logging configuration.
-    Creates a logger with both console and file handlers.
+    Get a logger with the specified name.
     
+    Args:
+        name: Logger name.
+        
     Returns:
-        logger: Configured logger instance
+        Configured logger instance.
     """
     # Create logger
-    logger = logging.getLogger("mcts_evo_prompt")
-    logger.setLevel(getattr(logging, LOG_LEVEL.upper()))
+    logger = logging.getLogger(name)
     
-    # Clear existing handlers
-    logger.handlers = []
-    
-    # Create formatter
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    
-    # Add console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-    
-    # Add file handler if enabled
-    if LOG_TO_FILE:
-        # Ensure log directory exists
-        LOG_DIR.mkdir(exist_ok=True, parents=True)
+    # Only configure if not already configured
+    if not logger.handlers:
+        # Set log level
+        logger.setLevel(getattr(logging, LOG_LEVEL))
         
+        # Create console handler
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(logging.Formatter(LOG_FORMAT))
+        logger.addHandler(console_handler)
+        
+        # Create file handler
         file_handler = RotatingFileHandler(
-            LOG_FILE, maxBytes=10485760, backupCount=5  # 10 MB
+            LOG_DIR / f"{name.replace('.', '_')}.log",
+            maxBytes=MAX_LOG_SIZE,
+            backupCount=BACKUP_COUNT
         )
-        file_handler.setFormatter(formatter)
+        file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
         logger.addHandler(file_handler)
     
     return logger
-
-def get_logger(name):
-    """
-    Get a named logger.
-    
-    Args:
-        name: Name of the logger, typically the module name.
-        
-    Returns:
-        Logger instance.
-    """
-    return logging.getLogger(f"mcts_evo_prompt.{name}")

@@ -1,86 +1,118 @@
 """
-API routes for prompt processing.
+Prompt-related API endpoints.
 """
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from app.api.models.request_models import InputTextRequest, PromptExpansionRequest, ModelTrainingRequest
-from app.api.models.response_models import ProcessedInputResponse, ExpandedPromptResponse, TrainingStatusResponse
+from typing import Dict, Any, List, Optional
+from fastapi import APIRouter, HTTPException, Depends, Query, Body
+from app.api.models.request_models import PromptRequest, EvaluatePromptRequest
+from app.api.models.response_models import PromptResponse, PromptAnalysisResponse
 from app.services.prompt_service import PromptService
-from app.api.middleware.auth import verify_api_key
 from app.utils.logger import get_logger
 
-logger = get_logger("api.prompt_routes")
+logger = get_logger("api.endpoints.prompt_routes")
 
-# Create router
 router = APIRouter()
 
-# Create service instance
-prompt_service = PromptService()
-
-@router.post("/process", response_model=ProcessedInputResponse, dependencies=[Depends(verify_api_key)])
-async def process_input(request: InputTextRequest):
+def get_prompt_service() -> PromptService:
     """
-    Process input text to separate prompt and data, analyze task, and expand prompt.
+    Get prompt service instance.
+    
+    Returns:
+        PromptService instance.
+    """
+    return PromptService()
+
+@router.post("/analyze", response_model=PromptAnalysisResponse)
+async def analyze_prompt(
+    request: PromptRequest = Body(...),
+    prompt_service: PromptService = Depends(get_prompt_service)
+):
+    """
+    Analyze a prompt to understand its task and structure.
     
     Args:
-        request: Input text request.
+        request: Prompt request.
+        prompt_service: Prompt service.
         
     Returns:
-        Processed input response.
+        Prompt analysis response.
     """
     try:
-        result = prompt_service.process_input(request.text)
-        return ProcessedInputResponse(
+        result = prompt_service.process_input(request.input_text)
+        
+        return PromptAnalysisResponse(
+            original_input=request.input_text,
             prompt=result["prompt"],
             data=result["data"],
-            task_type=result["task_analysis"]["task_type"],
-            category=result["task_analysis"]["category"],
+            task_analysis=result["task_analysis"],
             expanded_prompt=result["expanded_prompt"]
         )
     except Exception as e:
-        logger.error(f"Error processing input: {e}")
-        raise HTTPException(status_code=500, detail=f"Error processing input: {str(e)}")
+        logger.error(f"Error analyzing prompt: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to analyze prompt: {str(e)}")
 
-@router.post("/expand", response_model=ExpandedPromptResponse, dependencies=[Depends(verify_api_key)])
-async def expand_prompt(request: PromptExpansionRequest):
+@router.post("/expand", response_model=PromptResponse)
+async def expand_prompt(
+    request: PromptRequest = Body(...),
+    prompt_service: PromptService = Depends(get_prompt_service)
+):
     """
-    Expand a prompt with structured enhancements.
+    Expand a prompt using prompt engineering techniques.
     
     Args:
-        request: Prompt expansion request.
+        request: Prompt request.
+        prompt_service: Prompt service.
         
     Returns:
         Expanded prompt response.
     """
     try:
-        expanded_prompt = prompt_service.expand_prompt(request.prompt, request.task_type)
-        return ExpandedPromptResponse(
-            original_prompt=request.prompt,
-            expanded_prompt=expanded_prompt
+        # Process input to extract prompt and data
+        result = prompt_service.process_input(request.input_text)
+        
+        # Expand the prompt
+        expanded_prompt = prompt_service.expand_prompt(
+            result["prompt"], 
+            result["task_analysis"].get("task_type")
+        )
+        
+        return PromptResponse(
+            original=request.input_text,
+            prompt=result["prompt"],
+            data=result["data"],
+            expanded=expanded_prompt
         )
     except Exception as e:
         logger.error(f"Error expanding prompt: {e}")
-        raise HTTPException(status_code=500, detail=f"Error expanding prompt: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to expand prompt: {str(e)}")
 
-@router.post("/train", response_model=TrainingStatusResponse, dependencies=[Depends(verify_api_key)])
-async def train_model(request: ModelTrainingRequest, background_tasks: BackgroundTasks):
+@router.post("/evaluate", response_model=Dict[str, Any])
+async def evaluate_prompt(
+    request: EvaluatePromptRequest = Body(...),
+    prompt_service: PromptService = Depends(get_prompt_service)
+):
     """
-    Train the prompt expansion model.
+    Evaluate a prompt's quality.
     
     Args:
-        request: Model training request.
-        background_tasks: FastAPI background tasks.
+        request: Evaluate prompt request.
+        prompt_service: Prompt service.
         
     Returns:
-        Training status response.
+        Evaluation results.
     """
     try:
-        # Start training in background
-        background_tasks.add_task(prompt_service.train_expansion_model, request.epochs, request.batch_size)
+        # Process input to extract prompt and data
+        result = prompt_service.process_input(request.input_text)
         
-        return TrainingStatusResponse(
-            status="started",
-            message="Model training started in background"
+        # Evaluate the prompt
+        evaluation = prompt_service.evaluate_prompt(
+            result["prompt"],
+            result["task_analysis"].get("task_type"),
+            result["data"] if request.use_data else None,
+            expected_output=request.expected_output
         )
+        
+        return evaluation
     except Exception as e:
-        logger.error(f"Error starting model training: {e}")
-        raise HTTPException(status_code=500, detail=f"Error starting model training: {str(e)}")
+        logger.error(f"Error evaluating prompt: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to evaluate prompt: {str(e)}")

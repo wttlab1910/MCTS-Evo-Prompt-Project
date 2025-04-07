@@ -1,132 +1,208 @@
 """
-HuggingFace interface for LLM interactions.
+HuggingFace model provider.
 """
-from typing import Dict, List, Any
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+from typing import Dict, Any, List, Optional, Union
+import os
+import time
+import asyncio
 from app.llm.interface import LLMInterface
 from app.utils.logger import get_logger
-from app.utils.timer import timed
 
-logger = get_logger("llm.huggingface")
+logger = get_logger("llm.providers.huggingface")
 
-class HuggingFaceInterface(LLMInterface):
+class HuggingFaceProvider(LLMInterface):
     """
-    Interface for HuggingFace models.
+    Provider for HuggingFace models.
     """
     
-    def __init__(self, model_name: str, **kwargs):
+    def __init__(self, model_id: str, **kwargs):
         """
-        Initialize HuggingFace interface.
+        Initialize the HuggingFace provider.
         
         Args:
-            model_name: Name of the HuggingFace model.
-            **kwargs: Additional parameters for the model.
+            model_id: Identifier for the model to use.
+            **kwargs: Additional parameters:
+                - api_key: HuggingFace API key (optional for some models).
+                - max_tokens: Maximum number of tokens to generate.
+                - temperature: Sampling temperature.
+                - timeout: Timeout in seconds.
         """
-        logger.info(f"Initializing HuggingFace interface for model: {model_name}")
-        
-        self.model_name = model_name
-        self.device = kwargs.get("device", "cuda" if torch.cuda.is_available() else "cpu")
-        self.max_length = kwargs.get("max_length", 1024)
+        super().__init__(model_id, **kwargs)
+        self.api_key = kwargs.get("api_key", os.environ.get("HUGGINGFACE_API_KEY", ""))
+        self.max_tokens = kwargs.get("max_tokens", 2048)
         self.temperature = kwargs.get("temperature", 0.7)
-        self.top_p = kwargs.get("top_p", 0.9)
+        self.timeout = kwargs.get("timeout", 30)
         
-        # Initialize tokenizer and model
+        # Load model
+        self._load_model()
+    
+    def _load_model(self):
+        """Load the model either via API or locally."""
         try:
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-            
-            # Load model
-            if self.device == "cuda":
-                self.model = AutoModelForCausalLM.from_pretrained(
-                    model_name, 
-                    torch_dtype=torch.float16,
-                    device_map="auto"
-                )
+            if self.api_key:
+                # Use HuggingFace Inference API
+                from huggingface_hub import InferenceClient
+                self.client = InferenceClient(token=self.api_key)
+                logger.info(f"Using HuggingFace Inference API for model: {self.model_id}")
             else:
-                self.model = AutoModelForCausalLM.from_pretrained(model_name)
-                self.model.to(self.device)
-                
-            # Create text generation pipeline
-            self.pipeline = pipeline(
-                "text-generation",
-                model=self.model,
-                tokenizer=self.tokenizer,
-                device=self.device
-            )
-            
-            logger.info(f"HuggingFace model {model_name} loaded successfully on {self.device}")
+                # Load model locally
+                try:
+                    import torch
+                    from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+                    
+                    logger.info(f"Loading local model: {self.model_id}")
+                    
+                    # Check for GPU availability
+                    device = "cuda" if torch.cuda.is_available() else "cpu"
+                    logger.info(f"Using device: {device}")
+                    
+                    # Load tokenizer and model
+                    self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        self.model_id,
+                        torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+                        low_cpu_mem_usage=True,
+                        device_map="auto" if device == "cuda" else None
+                    )
+                    
+                    # Create generation pipeline
+                    self.pipeline = pipeline(
+                        "text-generation",
+                        model=self.model,
+                        tokenizer=self.tokenizer,
+                        device=device
+                    )
+                    
+                    logger.info(f"Successfully loaded local model: {self.model_id}")
+                except ImportError as e:
+                    logger.error(f"Failed to import required packages for local model: {e}")
+                    raise ImportError("Please install transformers, torch, and accelerate to use local models.")
+                except Exception as e:
+                    logger.error(f"Failed to load local model: {e}")
+                    raise
         except Exception as e:
-            logger.error(f"Failed to load HuggingFace model {model_name}: {e}")
+            logger.error(f"Failed to initialize HuggingFace provider: {e}")
             raise
     
-    @timed
-    def generate(self, prompt: str, **kwargs) -> str:
+    async def generate(self, prompt: str, **kwargs) -> Dict[str, Any]:
         """
-        Generate a response from the LLM.
+        Generate text from a prompt.
         
         Args:
-            prompt: Input prompt text.
-            **kwargs: Additional generation parameters.
+            prompt: The input prompt.
+            **kwargs: Additional generation parameters:
+                - max_tokens: Maximum number of tokens to generate.
+                - temperature: Sampling temperature.
+                - timeout: Timeout in seconds.
             
         Returns:
-            Generated response text.
+            Dictionary containing generated text and metadata.
         """
-        # Override default parameters with kwargs
-        max_length = kwargs.get("max_length", self.max_length)
+        # Get parameters, override defaults if provided
+        max_tokens = kwargs.get("max_tokens", self.max_tokens)
         temperature = kwargs.get("temperature", self.temperature)
-        top_p = kwargs.get("top_p", self.top_p)
+        timeout = kwargs.get("timeout", self.timeout)
+        
+        start_time = time.time()
         
         try:
-            # Generate response
-            response = self.pipeline(
-                prompt,
-                max_length=max_length,
-                temperature=temperature,
-                top_p=top_p,
-                do_sample=True,
-                num_return_sequences=1
+            # Run in executor to avoid blocking the event loop
+            result = await asyncio.get_event_loop().run_in_executor(
+                None, self._generate_sync, prompt, max_tokens, temperature
             )
             
-            # Extract generated text
-            generated_text = response[0]["generated_text"]
+            elapsed_time = time.time() - start_time
             
-            # Remove prompt from the beginning if present
-            if generated_text.startswith(prompt):
-                generated_text = generated_text[len(prompt):].strip()
-                
-            return generated_text
+            return {
+                "text": result,
+                "prompt": prompt,
+                "model": self.model_id,
+                "elapsed_time": elapsed_time,
+                "finish_reason": "stop"
+            }
+        except asyncio.TimeoutError:
+            elapsed_time = time.time() - start_time
+            logger.warning(f"Generation timed out after {elapsed_time:.2f}s")
+            
+            return {
+                "text": "",
+                "prompt": prompt,
+                "model": self.model_id,
+                "elapsed_time": elapsed_time,
+                "finish_reason": "timeout",
+                "error": "Request timed out"
+            }
         except Exception as e:
-            logger.error(f"Error generating response: {e}")
-            return f"Error generating response: {str(e)}"
+            elapsed_time = time.time() - start_time
+            logger.error(f"Generation failed: {e}")
+            
+            return {
+                "text": "",
+                "prompt": prompt,
+                "model": self.model_id,
+                "elapsed_time": elapsed_time,
+                "finish_reason": "error",
+                "error": str(e)
+            }
     
-    @timed
-    def batch_generate(self, prompts: List[str], **kwargs) -> List[str]:
+    def _generate_sync(self, prompt: str, max_tokens: int, temperature: float) -> str:
         """
-        Generate responses for multiple prompts.
+        Synchronous text generation.
         
         Args:
-            prompts: List of input prompt texts.
+            prompt: The input prompt.
+            max_tokens: Maximum number of tokens to generate.
+            temperature: Sampling temperature.
+            
+        Returns:
+            Generated text.
+        """
+        if hasattr(self, "client"):
+            # Use Inference API
+            response = self.client.text_generation(
+                prompt,
+                model=self.model_id,
+                max_new_tokens=max_tokens,
+                temperature=temperature,
+                do_sample=temperature > 0
+            )
+            return response
+        else:
+            # Use local model
+            generation_config = {
+                "max_new_tokens": max_tokens,
+                "temperature": temperature,
+                "do_sample": temperature > 0,
+                "top_p": 0.9,
+                "top_k": 50,
+                "pad_token_id": self.tokenizer.eos_token_id,
+            }
+            
+            outputs = self.pipeline(
+                prompt,
+                **generation_config
+            )
+            
+            # Extract generated text, removing the prompt
+            generated_text = outputs[0]["generated_text"]
+            if generated_text.startswith(prompt):
+                generated_text = generated_text[len(prompt):]
+                
+            return generated_text
+    
+    async def generate_batch(self, prompts: List[str], **kwargs) -> List[Dict[str, Any]]:
+        """
+        Generate text for multiple prompts.
+        
+        Args:
+            prompts: List of input prompts.
             **kwargs: Additional generation parameters.
             
         Returns:
-            List of generated response texts.
+            List of dictionaries containing generated text and metadata.
         """
-        return [self.generate(prompt, **kwargs) for prompt in prompts]
-    
-    def get_model_info(self) -> Dict[str, Any]:
-        """
-        Get information about the model.
+        # Create tasks for each prompt
+        tasks = [self.generate(prompt, **kwargs) for prompt in prompts]
         
-        Returns:
-            Dictionary with model information.
-        """
-        return {
-            "provider": "huggingface",
-            "model_name": self.model_name,
-            "device": self.device,
-            "parameters": {
-                "max_length": self.max_length,
-                "temperature": self.temperature,
-                "top_p": self.top_p
-            }
-        }
+        # Run all tasks concurrently
+        return await asyncio.gather(*tasks)
