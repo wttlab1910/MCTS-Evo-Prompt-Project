@@ -2014,6 +2014,78 @@ action_registry = {
     "structure_output": StructureOutputAction
 }
 
+# 添加evolution动作
+class MutationAction(Action):
+    """Action representing a mutation operation."""
+    
+    def __init__(self, parameters: Optional[Dict[str, Any]] = None):
+        """
+        Initialize a mutation action.
+        
+        Args:
+            parameters: Dictionary with mutation parameters.
+        """
+        super().__init__(
+            action_type="mutation",
+            description="Apply mutation to prompt",
+            parameters=parameters or {}
+        )
+    
+    def apply(self, state: PromptState) -> PromptState:
+        """
+        Apply the mutation action to a state.
+        
+        Args:
+            state: Current state.
+            
+        Returns:
+            New state after applying mutation.
+        """
+        # In a real implementation, this would call a mutation function
+        # For now, just return a copy of the state
+        new_state = state.copy()
+        new_state.text = new_state.text
+        return new_state
+
+
+class CrossoverAction(Action):
+    """Action representing a crossover operation."""
+    
+    def __init__(self, parameters: Optional[Dict[str, Any]] = None):
+        """
+        Initialize a crossover action.
+        
+        Args:
+            parameters: Dictionary with crossover parameters.
+        """
+        super().__init__(
+            action_type="crossover",
+            description="Apply crossover to prompts",
+            parameters=parameters or {}
+        )
+    
+    def apply(self, state: PromptState) -> PromptState:
+        """
+        Apply the crossover action to a state.
+        
+        Args:
+            state: Current state.
+            
+        Returns:
+            New state after applying crossover.
+        """
+        # In a real implementation, this would call a crossover function
+        # For now, just return a copy of the state
+        new_state = state.copy()
+        return new_state
+
+# Update the action registry with the new action types
+action_registry.update({
+    # Evolutionary actions
+    "mutation": MutationAction,
+    "crossover": CrossoverAction
+})
+
 
 def create_action(action_type: str, **kwargs) -> Action:
     """
