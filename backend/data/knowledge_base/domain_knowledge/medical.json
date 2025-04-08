@@ -1,0 +1,31 @@
+[
+    {
+      "id": "k_med_001",
+      "type": "entity_classification",
+      "statement": "HbA1c is a lab test that measures average blood glucose levels, not a disease.",
+      "entities": ["HbA1c"],
+      "relations": [
+        {"subject": "HbA1c", "predicate": "isA", "object": "lab_test"}
+      ],
+      "metadata": {
+        "source": "error_feedback",
+        "domain": "medical",
+        "confidence": 0.85
+      }
+    },
+    {
+      "id": "k_med_002",
+      "type": "conceptual_knowledge",
+      "statement": "ACE inhibitors are a class of medication used primarily for hypertension and heart failure.",
+      "entities": ["ACE inhibitors"],
+      "relations": [
+        {"subject": "ACE inhibitors", "predicate": "isA", "object": "medication_class"},
+        {"subject": "ACE inhibitors", "predicate": "treatsCondition", "object": "hypertension"}
+      ],
+      "metadata": {
+        "source": "text_extraction",
+        "domain": "medical",
+        "confidence": 0.9
+      }
+    }
+  ]

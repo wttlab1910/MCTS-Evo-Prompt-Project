@@ -1,68 +1,62 @@
 """
-Error analysis for prompt optimization.
+Error analysis module.
+
+This module analyzes errors from model responses to identify patterns and root causes.
 """
-from typing import Dict, Any, List, Optional, Tuple, Counter
-from collections import defaultdict, Counter
+from typing import Dict, Any, List, Optional, Set, Tuple, Union
 import re
+from collections import defaultdict
+import hashlib
+
 from app.utils.logger import get_logger
 
-logger = get_logger("error.analyzer")
+logger = get_logger("knowledge.error.error_analyzer")
 
 class ErrorAnalyzer:
     """
-    Analyzes errors to identify patterns and root causes.
+    Analyze errors to identify patterns and extract insights.
     
-    This class handles clustering errors by type, identifying common patterns,
-    and generating structured error descriptions.
+    This analyzer examines errors from model responses to identify recurring patterns,
+    categorize them, and provide structured analysis.
     """
     
     def __init__(self):
         """Initialize an error analyzer."""
-        # Error categories and their descriptions
+        # Initialize error categories and patterns
         self.error_categories = {
-            "semantic_error": "Misunderstanding of the task requirements",
-            "format_error": "Incorrect output format or structure",
-            "reasoning_error": "Flawed reasoning or logical process",
-            "omission_error": "Missing required information in the output",
-            "hallucination_error": "Including incorrect or made-up information",
-            "boundary_error": "Confusion about where to start or end processing",
-            "context_error": "Failing to consider the provided context",
-            "domain_error": "Lack of domain-specific knowledge"
+            "entity_confusion": "Confusion between different entity types or categories",
+            "procedure_error": "Errors in following a sequence of steps or a process",
+            "domain_misconception": "Misconceptions about domain-specific concepts",
+            "format_inconsistency": "Inconsistencies in output format or structure",
+            "boundary_confusion": "Confusion at boundary cases or special situations"
         }
         
-        # Keywords associated with each error category
-        self.error_keywords = {
-            "semantic_error": ["misunderstood", "misinterpreted", "wrong meaning", "incorrect interpretation"],
-            "format_error": ["format", "structure", "layout", "organization"],
-            "reasoning_error": ["logic", "reasoning", "deduction", "inference", "conclusion"],
-            "omission_error": ["missing", "omitted", "excluded", "left out"],
-            "hallucination_error": ["fabricated", "made up", "invented", "incorrect fact"],
-            "boundary_error": ["boundary", "scope", "limit", "extend"],
-            "context_error": ["context", "surrounding", "related", "background"],
-            "domain_error": ["domain", "field", "specialty", "expertise", "technical"]
-        }
-        
-        logger.debug("Initialized ErrorAnalyzer")
-    
     def analyze_errors(self, errors: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Analyze a collection of errors to identify patterns.
+        Analyze a list of errors to identify patterns.
         
         Args:
-            errors: List of error information dictionaries.
+            errors: List of error dictionaries.
             
         Returns:
-            Dictionary with analysis results, including error clusters and patterns.
+            Dictionary with analysis results, including:
+            - error_clusters: Errors grouped by category
+            - patterns: Identified error patterns
+            - summary: Summary of analysis
         """
         if not errors:
             logger.warning("No errors to analyze")
-            return {"error_clusters": {}, "patterns": [], "summary": "No errors to analyze"}
+            return {
+                "error_clusters": {},
+                "patterns": [],
+                "summary": "No errors to analyze"
+            }
         
-        # Categorize errors
-        error_clusters = self._categorize_errors(errors)
+        # Cluster errors by type
+        error_clusters = self._cluster_errors(errors)
         
-        # Identify patterns
-        patterns = self._identify_patterns(errors, error_clusters)
+        # Extract patterns from clusters
+        patterns = self._extract_patterns(error_clusters, errors)
         
         # Generate summary
         summary = self._generate_summary(error_clusters, patterns)
@@ -76,206 +70,290 @@ class ErrorAnalyzer:
         logger.debug(f"Analyzed {len(errors)} errors, found {len(patterns)} patterns")
         return analysis
     
-    def _categorize_errors(self, errors: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+    def _cluster_errors(self, errors: List[Dict[str, Any]]) -> Dict[str, List[str]]:
         """
-        Categorize errors by type.
+        Cluster errors by type or category.
         
         Args:
-            errors: List of error information dictionaries.
+            errors: List of error dictionaries.
             
         Returns:
-            Dictionary mapping error categories to lists of errors.
+            Dictionary mapping error categories to lists of error IDs.
         """
         clusters = defaultdict(list)
         
         for error in errors:
-            # If error_type is already a known category, use it
-            if "error_type" in error and error["error_type"] in self.error_categories:
-                category = error["error_type"]
-            else:
-                # Otherwise, determine the category based on error content
-                category = self._determine_error_category(error)
+            error_id = error.get("example_id", str(hash(str(error))))
+            error_type = error.get("error_type", "unknown")
+            description = error.get("description", "")
             
-            clusters[category].append(error)
+            # Determine the most appropriate category
+            category = self._categorize_error(error_type, description)
+            
+            # Add to cluster
+            clusters[category].append(error_id)
         
-        # Convert defaultdict to regular dict for return
         return dict(clusters)
     
-    def _determine_error_category(self, error: Dict[str, Any]) -> str:
+    def _categorize_error(self, error_type: str, description: str) -> str:
         """
-        Determine the category of an error based on its content.
+        Categorize an error based on type and description.
         
         Args:
-            error: Error information dictionary.
+            error_type: Error type string.
+            description: Error description.
             
         Returns:
-            Error category string.
+            Error category.
         """
-        # Extract text from error
-        error_text = ""
-        for field in ["actual", "error_message"]:
-            if field in error and error[field]:
-                error_text += str(error[field]) + " "
+        # First try to match based on error_type
+        error_type_lower = error_type.lower()
         
-        # Check for keywords in each category
-        category_scores = {}
-        for category, keywords in self.error_keywords.items():
-            score = sum(1 for keyword in keywords if keyword.lower() in error_text.lower())
-            category_scores[category] = score
+        if "entity" in error_type_lower or "classification" in error_type_lower:
+            return "entity_confusion"
         
-        # Get category with highest score
-        if category_scores:
-            max_score = max(category_scores.values())
-            if max_score > 0:
-                # Find all categories with the max score
-                max_categories = [cat for cat, score in category_scores.items() if score == max_score]
-                # If multiple categories have the same score, choose one
-                return max_categories[0]
+        if "procedure" in error_type_lower or "step" in error_type_lower or "sequence" in error_type_lower:
+            return "procedure_error"
         
-        # Default to "semantic_error" if no clear category
-        return "semantic_error"
+        if "concept" in error_type_lower or "domain" in error_type_lower or "knowledge" in error_type_lower:
+            return "domain_misconception"
+        
+        if "format" in error_type_lower or "structure" in error_type_lower or "output" in error_type_lower:
+            return "format_inconsistency"
+        
+        if "boundary" in error_type_lower or "edge" in error_type_lower or "special" in error_type_lower:
+            return "boundary_confusion"
+        
+        # If no match by type, try to match by description
+        description_lower = description.lower()
+        
+        if ("confused" in description_lower or "mistook" in description_lower or 
+            "classified as" in description_lower or "instead of" in description_lower):
+            return "entity_confusion"
+        
+        if ("steps" in description_lower or "procedure" in description_lower or 
+            "process" in description_lower or "sequence" in description_lower):
+            return "procedure_error"
+        
+        if ("concept" in description_lower or "definition" in description_lower or 
+            "meaning" in description_lower or "interpreted" in description_lower):
+            return "domain_misconception"
+        
+        if ("format" in description_lower or "structure" in description_lower or 
+            "layout" in description_lower or "presentation" in description_lower):
+            return "format_inconsistency"
+        
+        if ("edge case" in description_lower or "boundary" in description_lower or 
+            "special case" in description_lower or "exception" in description_lower):
+            return "boundary_confusion"
+        
+        # Default to domain misconception if no better match
+        return "domain_misconception"
     
-    def _identify_patterns(
-        self, 
-        errors: List[Dict[str, Any]], 
-        clusters: Dict[str, List[Dict[str, Any]]]
-    ) -> List[Dict[str, Any]]:
+    def _extract_patterns(self, clusters: Dict[str, List[str]], errors: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Identify common patterns in errors.
+        Extract patterns from error clusters.
         
         Args:
-            errors: List of all error information dictionaries.
-            clusters: Dictionary mapping error categories to lists of errors.
+            clusters: Error clusters by category.
+            errors: Original error dictionaries.
             
         Returns:
-            List of pattern dictionaries, each describing a common error pattern.
+            List of identified patterns.
         """
         patterns = []
         
-        # Check for format-related errors
-        if "format_error" in clusters and len(clusters["format_error"]) >= 2:
-            patterns.append({
-                "pattern_type": "format_inconsistency",
-                "description": "Inconsistent output format across examples",
-                "frequency": len(clusters["format_error"]),
-                "examples": [e["example_id"] for e in clusters["format_error"][:3]]
-            })
+        # Create lookup for errors by ID
+        error_lookup = {}
+        for error in errors:
+            error_id = error.get("example_id", str(hash(str(error))))
+            error_lookup[error_id] = error
         
-        # Check for omission errors
-        if "omission_error" in clusters and len(clusters["omission_error"]) >= 2:
-            patterns.append({
-                "pattern_type": "consistent_omission",
-                "description": "Consistently omitting required information",
-                "frequency": len(clusters["omission_error"]),
-                "examples": [e["example_id"] for e in clusters["omission_error"][:3]]
-            })
-        
-        # Check for hallucination errors
-        if "hallucination_error" in clusters and len(clusters["hallucination_error"]) >= 1:
-            patterns.append({
-                "pattern_type": "hallucination_tendency",
-                "description": "Tendency to generate incorrect or unsupported information",
-                "frequency": len(clusters["hallucination_error"]),
-                "examples": [e["example_id"] for e in clusters["hallucination_error"][:3]]
-            })
-        
-        # Check for multiple error types (confusion)
-        if len(clusters) >= 3:
-            patterns.append({
-                "pattern_type": "task_confusion",
-                "description": "Multiple error types suggest general confusion about the task",
-                "frequency": len(errors),
-                "categories": list(clusters.keys())
-            })
-        
-        # Check for domain-specific errors
-        if "domain_error" in clusters:
-            patterns.append({
-                "pattern_type": "domain_knowledge_gap",
-                "description": "Lack of necessary domain-specific knowledge",
-                "frequency": len(clusters["domain_error"]),
-                "examples": [e["example_id"] for e in clusters["domain_error"][:3]]
-            })
+        # Process each cluster
+        for category, error_ids in clusters.items():
+            category_errors = [error_lookup[error_id] for error_id in error_ids if error_id in error_lookup]
+            
+            if not category_errors:
+                continue
+                
+            # Group similar errors within the category
+            subclusters = self._group_similar_errors(category_errors)
+            
+            # Create a pattern for each subcluster
+            for subcluster in subclusters:
+                if not subcluster:
+                    continue
+                    
+                # Generate a pattern from the subcluster
+                pattern = self._generate_pattern(category, subcluster)
+                if pattern:
+                    patterns.append(pattern)
         
         return patterns
     
-    def _generate_summary(
-        self, 
-        clusters: Dict[str, List[Dict[str, Any]]], 
-        patterns: List[Dict[str, Any]]
-    ) -> str:
+    def _group_similar_errors(self, errors: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
+        """
+        Group similar errors together.
+        
+        Args:
+            errors: List of error dictionaries.
+            
+        Returns:
+            List of error subclusters.
+        """
+        if len(errors) <= 1:
+            return [errors]
+            
+        subclusters = []
+        remaining = errors.copy()
+        
+        while remaining:
+            # Take first error as reference
+            reference = remaining.pop(0)
+            subcluster = [reference]
+            
+            # Find similar errors
+            i = 0
+            while i < len(remaining):
+                if self._are_errors_similar(reference, remaining[i]):
+                    subcluster.append(remaining.pop(i))
+                else:
+                    i += 1
+            
+            subclusters.append(subcluster)
+        
+        return subclusters
+    
+    def _are_errors_similar(self, error1: Dict[str, Any], error2: Dict[str, Any]) -> bool:
+        """
+        Check if two errors are similar.
+        
+        Args:
+            error1: First error dictionary.
+            error2: Second error dictionary.
+            
+        Returns:
+            True if errors are similar, False otherwise.
+        """
+        # Same error type is a strong indicator
+        if error1.get("error_type") == error2.get("error_type"):
+            return True
+            
+        # Check description similarity
+        desc1 = error1.get("description", "").lower()
+        desc2 = error2.get("description", "").lower()
+        
+        # Simple word overlap similarity
+        words1 = set(re.findall(r'\b\w+\b', desc1))
+        words2 = set(re.findall(r'\b\w+\b', desc2))
+        
+        if not words1 or not words2:
+            return False
+            
+        overlap = len(words1.intersection(words2))
+        similarity = overlap / max(len(words1), len(words2))
+        
+        return similarity > 0.5
+    
+    def _generate_pattern(self, category: str, errors: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Generate a pattern from a group of similar errors.
+        
+        Args:
+            category: Error category.
+            errors: List of similar error dictionaries.
+            
+        Returns:
+            Pattern dictionary.
+        """
+        if not errors:
+            return None
+            
+        # Use the most detailed error description as base
+        descriptions = [e.get("description", "") for e in errors]
+        base_description = max(descriptions, key=len) if descriptions else ""
+        
+        # Extract entities mentioned
+        entities = set()
+        for error in errors:
+            # Extract entities from example
+            example = error.get("example", {})
+            example_text = example.get("text", "")
+            
+            # Look for entities (capitalized words that aren't at start of sentence)
+            for match in re.finditer(r'(?<!\.\s)(?<!\?\s)(?<!\!\s)\b([A-Z][a-zA-Z0-9]*)\b', example_text):
+                entity = match.group(1)
+                if len(entity) >= 2 and entity not in ["I", "A", "The"]:
+                    entities.add(entity)
+            
+            # Look for entities in description
+            for match in re.finditer(r'\b([A-Z][a-zA-Z0-9]*)\b', error.get("description", "")):
+                entity = match.group(1)
+                if len(entity) >= 2 and entity not in ["I", "A", "The"]:
+                    entities.add(entity)
+        
+        # Generate a pattern ID
+        pattern_id = hashlib.md5(base_description.encode('utf-8')).hexdigest()[:8]
+        
+        # Create the pattern
+        pattern = {
+            "id": f"p_{pattern_id}",
+            "pattern_type": category,
+            "description": base_description,
+            "entities": list(entities),
+            "frequency": len(errors),
+            "examples": [error.get("example_id", "") for error in errors if "example_id" in error]
+        }
+        
+        return pattern
+    
+    def _generate_summary(self, clusters: Dict[str, List[str]], patterns: List[Dict[str, Any]]) -> str:
         """
         Generate a summary of the error analysis.
         
         Args:
-            clusters: Dictionary mapping error categories to lists of errors.
-            patterns: List of identified error patterns.
+            clusters: Error clusters by category.
+            patterns: Identified patterns.
             
         Returns:
-            Summary string.
+            Summary text.
         """
-        if not clusters:
-            return "No errors detected."
-        
-        # Count errors by category
-        category_counts = {category: len(errors) for category, errors in clusters.items()}
-        total_errors = sum(category_counts.values())
-        
-        # Identify primary error category
-        primary_category = max(category_counts.items(), key=lambda x: x[1])[0]
-        
-        # Generate summary text
-        summary = f"Analysis of {total_errors} errors reveals that "
-        
-        if total_errors == 1:
-            summary = f"Analysis of a single error indicates a {primary_category}. "
-        elif len(clusters) == 1:
-            summary += f"all errors are of type {primary_category}. "
-        else:
-            summary += f"the primary issue is {primary_category} ({category_counts[primary_category]} errors), "
-            secondary_categories = sorted(
-                [(c, n) for c, n in category_counts.items() if c != primary_category],
-                key=lambda x: x[1],
-                reverse=True
-            )
-            if secondary_categories:
-                secondary = secondary_categories[0]
-                summary += f"followed by {secondary[0]} ({secondary[1]} errors). "
-        
-        # Add pattern information
-        if patterns:
-            pattern_desc = patterns[0]["description"].lower()
-            summary += f"The main pattern observed is {pattern_desc}. "
+        if not patterns:
+            return "No clear error patterns identified."
             
-            if len(patterns) > 1:
-                summary += f"Additionally, {len(patterns) - 1} other patterns were identified."
+        # Count errors by category
+        category_counts = {category: len(error_ids) for category, error_ids in clusters.items()}
         
-        return summary
+        # Find the most common category
+        top_category = max(category_counts.items(), key=lambda x: x[1]) if category_counts else (None, 0)
+        
+        # Generate summary
+        summary_parts = []
+        
+        # Overview
+        total_errors = sum(category_counts.values())
+        summary_parts.append(f"Analyzed {total_errors} errors and identified {len(patterns)} distinct patterns.")
+        
+        # Top category
+        if top_category[0]:
+            category_desc = self.error_categories.get(top_category[0], top_category[0])
+            summary_parts.append(f"Most common error type: {category_desc} ({top_category[1]} instances).")
+        
+        # Top patterns
+        if patterns:
+            top_pattern = max(patterns, key=lambda p: p.get("frequency", 0))
+            summary_parts.append(f"Top pattern: {top_pattern['description'][:100]}... ({top_pattern['frequency']} instances).")
+        
+        return " ".join(summary_parts)
     
     def get_error_category_description(self, category: str) -> str:
         """
         Get the description for an error category.
         
         Args:
-            category: Error category string.
+            category: Error category.
             
         Returns:
-            Description of the error category.
+            Category description.
         """
-        return self.error_categories.get(
-            category, 
-            "Unknown error type"
-        )
-    
-    def add_error_category(self, category: str, description: str, keywords: List[str]) -> None:
-        """
-        Add a new error category to the analyzer.
-        
-        Args:
-            category: Error category string.
-            description: Description of the error category.
-            keywords: List of keywords associated with the category.
-        """
-        self.error_categories[category] = description
-        self.error_keywords[category] = keywords
-        logger.debug(f"Added new error category: {category}")
+        return self.error_categories.get(category, category)
