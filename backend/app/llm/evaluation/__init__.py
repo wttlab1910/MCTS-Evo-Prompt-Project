@@ -1,3 +1,0 @@
-"""
-LLM evaluation components.
-"""

@@ -814,18 +814,30 @@ class AddExplanationAction(ContentAction):
         target = self.parameters.get("target", "task")
         
         if target == "task" and "task" in state.components:
-            return explanation_text not in state.components["task"]
+            # 检查 task 是否为 None 或空值
+            task_content = state.components["task"]
+            if task_content is None:
+                return True  # 如果 task 是 None，那么解释肯定不在其中，可以应用
+            return explanation_text not in task_content  # 否则检查解释是否已存在
+        
         elif target == "step" and "steps" in state.components and state.components["steps"]:
             target_index = self.parameters.get("target_index", None)
             steps = state.components["steps"]
             
             if target_index is not None and 0 <= target_index < len(steps):
-                return explanation_text not in steps[target_index]
+                # 检查步骤是否为 None
+                step_content = steps[target_index]
+                if step_content is None:
+                    return True
+                return explanation_text not in step_content
             else:
-                # Check if explanation is in any step
-                return not any(explanation_text in step for step in steps)
+                # 检查解释是否在任何步骤中
+                return not any(explanation_text in step for step in steps if step is not None)
+        
         elif "explanations" in state.components:
             explanations = state.components["explanations"]
+            if explanations is None:
+                return True
             if isinstance(explanations, list):
                 return explanation_text not in explanations
             else:
