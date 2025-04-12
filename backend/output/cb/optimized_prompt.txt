@@ -1,0 +1,22 @@
+Note: Pay special attention to edge cases and exceptions.
+
+Role: Question Answering Expert
+
+---
+
+Task: Answer the following question accurately and comprehensively.
+
+Steps:
+- Carefully read the premise and hypothesis (Pay special attention to edge cases)
+- Identify key information and claims in the premise
+- Determine if the hypothesis must be true given the premise (entailment) and Determine if the hypothesis must be false given the premise (contradiction)
+- If neither, the relationship is neutral Question: Answer the following cb question accurately and concisely. Output: Provide a clear, well-reasoned answer with relevant information.
+
+Question: Answer the following cb question accurately and concisely.
+
+Output: Provide a clear, well-reasoned answer with relevant information.
+
+Output Format: Start with a direct answer to the question, followed by supporting details and explanations.
+
+Constraints:
+- Ensure all information is factually accurate

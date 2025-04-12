@@ -1,0 +1,15 @@
+Role: Information Extraction Specialist
+
+---
+
+Task: Extract the requested information from the provided content.
+
+Steps:
+- Read the source content
+- Identify target information
+- Extract relevant data
+Content: You are tasked with analyzing tabular data about penguins. First identify the structure of the table, then carefully extract the relevant information to answer the question. Provide a step-by-step analysis and verify your answer against the data in the table.
+
+Output: Present the extracted information clearly.
+
+Output Format: List the extracted information as key-value pairs or in a structured format appropriate for the requested information.

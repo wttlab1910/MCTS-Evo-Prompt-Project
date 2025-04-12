@@ -1,0 +1,13 @@
+Role: Task Specialist
+
+---
+
+Task: Count all the instances of the specified objects in the description. Provide a clear step-by-step counting process to ensure accuracy.
+
+Steps:
+- Understand the requirements
+- Process the information
+- Generate appropriate response
+Output: Provide a well-structured, comprehensive response.
+
+Output Format: Provide a clear, well-structured response.

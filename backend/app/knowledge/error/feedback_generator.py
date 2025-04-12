@@ -27,7 +27,12 @@ class FeedbackGenerator:
             "procedure_error": ["modify_workflow", "add_explanation", "add_example"],
             "domain_misconception": ["add_domain_knowledge", "add_explanation", "add_rule"],
             "format_inconsistency": ["specify_format", "add_template", "structure_output"],
-            "boundary_confusion": ["add_constraint", "add_example", "add_domain_knowledge"]
+            "boundary_confusion": ["add_constraint", "add_example", "add_domain_knowledge"],
+            "calculation_error": ["modify_workflow", "add_explanation", "add_example"],
+            "missing_context": ["add_domain_knowledge", "add_constraint", "add_explanation"],
+            "lookup_error": ["modify_workflow", "add_example", "add_explanation"],
+            "classification_error": ["add_domain_knowledge", "add_constraint", "clarify_terminology"],
+            "numerical_error": ["add_explanation", "add_constraint", "add_example"]
         }
         
         # Suggestion templates for different error types
@@ -56,6 +61,31 @@ class FeedbackGenerator:
                 "Add constraints to handle {issue}",
                 "Include examples of edge cases like {issue}",
                 "Provide domain knowledge about special cases like {issue}"
+            ],
+            "calculation_error": [
+                "Provide a step-by-step calculation approach for {issue}",
+                "Add verification steps for calculations involving {issue}",
+                "Include example calculations similar to {issue}"
+            ],
+            "missing_context": [
+                "Add context information about {issue}",
+                "Explain the importance of considering all aspects of {issue}",
+                "Include examples that demonstrate proper context handling for {issue}"
+            ],
+            "lookup_error": [
+                "Improve table/data lookup instructions for {issue}",
+                "Add step-by-step lookup procedure for {issue}",
+                "Include example of proper data extraction for {issue}"
+            ],
+            "classification_error": [
+                "Clarify classification criteria for {issue}",
+                "Add domain knowledge about categories related to {issue}",
+                "Include examples of proper classification for {issue}"
+            ],
+            "numerical_error": [
+                "Add precision requirements for calculations involving {issue}",
+                "Include verification steps for numerical operations on {issue}",
+                "Provide calculation examples for {issue}"
             ]
         }
         
@@ -75,9 +105,17 @@ class FeedbackGenerator:
             
         patterns = analysis.get("patterns", [])
         if not patterns:
-            logger.debug("No patterns found in analysis")
-            return []
+            # If no patterns found in analysis, try to extract from raw errors
+            raw_errors = analysis.get("errors", [])
+            if raw_errors:
+                patterns = self._generate_basic_patterns(raw_errors)
             
+            logger.debug(f"No patterns found in analysis, generated {len(patterns)} basic patterns from {len(raw_errors)} raw errors")
+            
+            if not patterns:
+                logger.debug("No patterns or raw errors found in analysis")
+                return []
+        
         feedback_items = []
         
         # Process each pattern
@@ -97,6 +135,131 @@ class FeedbackGenerator:
         
         logger.debug(f"Generated {len(feedback_items)} feedback items")
         return feedback_items
+    
+    def _generate_basic_patterns(self, errors: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Generate basic patterns from raw errors when no patterns were found.
+        
+        Args:
+            errors: List of raw error dictionaries.
+            
+        Returns:
+            List of generated pattern dictionaries.
+        """
+        if not errors:
+            return []
+            
+        # Group errors by type
+        error_types = {}
+        for error in errors:
+            error_type = error.get("error_type", "unknown")
+            if error_type not in error_types:
+                error_types[error_type] = []
+            error_types[error_type].append(error)
+        
+        # Create a pattern for each error type
+        basic_patterns = []
+        for error_type, type_errors in error_types.items():
+            if not type_errors:
+                continue
+                
+            # Extract entities from errors
+            entities = set()
+            for error in type_errors:
+                for entity in self._extract_entities_from_error(error):
+                    entities.add(entity)
+            
+            # Create pattern
+            pattern = {
+                "pattern_type": error_type,
+                "description": self._generate_description_from_errors(type_errors),
+                "entities": list(entities),
+                "frequency": len(type_errors)
+            }
+            basic_patterns.append(pattern)
+        
+        return basic_patterns
+    
+    def _extract_entities_from_error(self, error: Dict[str, Any]) -> List[str]:
+        """
+        Extract potential entities from an error.
+        
+        Args:
+            error: Error dictionary.
+            
+        Returns:
+            List of extracted entities.
+        """
+        entities = []
+        
+        # Extract from example
+        example = error.get("example", {})
+        if isinstance(example, dict):
+            example_text = example.get("text", "")
+        else:
+            example_text = str(example)
+            
+        # Extract from actual vs expected
+        expected = error.get("expected", "")
+        actual = error.get("actual", "")
+        
+        # Look for potential entities
+        for text in [example_text, expected, actual]:
+            if isinstance(text, str):
+                # Look for capitalized words, numbers, and words in quotes
+                cap_matches = re.findall(r'\b([A-Z][a-zA-Z0-9]+)\b', text)
+                quote_matches = re.findall(r'"([^"]+)"', text)
+                number_matches = re.findall(r'\b(\d+)\b', text)
+                
+                entities.extend(cap_matches)
+                entities.extend(quote_matches)
+                entities.extend(number_matches)
+        
+        # Remove duplicates and return
+        return list(set(entities))
+    
+    def _generate_description_from_errors(self, errors: List[Dict[str, Any]]) -> str:
+        """
+        Generate a descriptive summary from a list of errors.
+        
+        Args:
+            errors: List of error dictionaries.
+            
+        Returns:
+            Error description string.
+        """
+        if not errors:
+            return "Unknown error pattern"
+            
+        # Try to get existing description
+        descriptions = [e.get("description", "") for e in errors if e.get("description")]
+        if descriptions:
+            return max(descriptions, key=len)  # Return the longest description
+        
+        # Generate based on error type and content
+        error_type = errors[0].get("error_type", "unknown")
+        
+        # Get expected vs actual values from the first error
+        first_error = errors[0]
+        expected = first_error.get("expected", "")
+        actual = first_error.get("actual", "")
+        
+        if error_type == "entity_confusion":
+            return f"Confusion between entity types or categories. Expected: {expected}, Got: {actual}"
+        elif error_type == "calculation_error":
+            return f"Error in numerical calculations or counting. Expected: {expected}, Got: {actual}"
+        elif error_type == "format_error" or error_type == "format_inconsistency":
+            return f"Output format does not match requirements. Expected: {expected}, Got: {actual}"
+        elif error_type == "missing_context":
+            return "Missing important contextual information needed to answer correctly."
+        elif error_type == "classification_error":
+            return f"Incorrect classification of items. Expected: {expected}, Got: {actual}"
+        elif error_type == "lookup_error":
+            return "Incorrect information extraction or lookup from data."
+        elif error_type == "numerical_error":
+            return f"Incorrect numerical value. Expected: {expected}, Got: {actual}"
+        else:
+            return f"Error pattern of type {error_type}. Expected: {expected}, Got: {actual}"
     
     def _generate_pattern_feedback(self, pattern_type: str, description: str, entities: List[str]) -> Optional[Dict[str, Any]]:
         """
@@ -134,7 +297,7 @@ class FeedbackGenerator:
         impact = self._estimate_impact(pattern_type, entities)
         
         # Generate action mapping
-        action_mapping = self._map_to_action(action_type, description, entities, issue)
+        action_mapping = self._map_to_action(action_type, description, entities, issue, pattern_type)
         
         # Create feedback item
         feedback = {
@@ -193,14 +356,26 @@ class FeedbackGenerator:
         if pattern_type == "procedure_error":
             return "High - Will improve process adherence"
             
+        # Higher impact for calculation errors
+        if pattern_type == "calculation_error":
+            return "High - Will improve numerical accuracy"
+            
         # Higher impact for format inconsistencies
         if pattern_type == "format_inconsistency":
             return "Medium - Will standardize output format"
             
+        # Higher impact for classification errors
+        if pattern_type == "classification_error":
+            return "High - Will improve classification accuracy"
+            
+        # Higher impact for lookup errors in table tasks
+        if pattern_type == "lookup_error":
+            return "High - Will improve data extraction accuracy"
+            
         # General impact
         return "Medium - Will improve accuracy and clarity"
     
-    def _map_to_action(self, action_type: str, description: str, entities: List[str], issue: str) -> Dict[str, Any]:
+    def _map_to_action(self, action_type: str, description: str, entities: List[str], issue: str, pattern_type: str) -> Dict[str, Any]:
         """
         Map feedback to a specific action.
         
@@ -209,6 +384,7 @@ class FeedbackGenerator:
             description: Error description.
             entities: Entities involved.
             issue: Key issue identified.
+            pattern_type: Type of error pattern.
             
         Returns:
             Action mapping dictionary.
@@ -218,67 +394,134 @@ class FeedbackGenerator:
             "parameters": {}
         }
         
-        # Set parameters based on action type
-        if action_type == "add_domain_knowledge":
-            action_mapping["parameters"] = {
-                "knowledge_text": description,
-                "domain": "general",
-                "location": "knowledge_section"
-            }
-            
-        elif action_type == "clarify_terminology":
-            if entities:
-                entity = entities[0]
-                definition = self._extract_definition(entity, description)
+        # Enhance action mapping based on error pattern type
+        if pattern_type == "entity_confusion":
+            if action_type == "add_domain_knowledge":
                 action_mapping["parameters"] = {
-                    "term": entity,
-                    "definition": definition
+                    "knowledge_text": f"Clarify the distinction between different types: {issue}",
+                    "domain": "entity_classification"
                 }
-            
-        elif action_type == "add_constraint":
-            action_mapping["parameters"] = {
-                "constraint_text": description
-            }
-            
-        elif action_type == "modify_workflow":
-            steps = self._extract_steps(description)
-            action_mapping["parameters"] = {
-                "steps": steps
-            }
-            
-        elif action_type == "add_explanation":
-            action_mapping["parameters"] = {
-                "explanation_text": description,
-                "target": "task"
-            }
-            
-        elif action_type == "add_example":
-            example = self._generate_example(description, entities)
-            action_mapping["parameters"] = {
-                "example_text": example,
-                "example_type": "input_output"
-            }
-            
-        elif action_type == "add_rule":
-            action_mapping["parameters"] = {
-                "rule_text": f"Rule: {description}"
-            }
-            
-        elif action_type == "specify_format":
-            action_mapping["parameters"] = {
-                "format_text": description
-            }
-            
-        elif action_type == "add_template":
-            action_mapping["parameters"] = {
-                "template_text": f"Template for {issue}: {description}"
-            }
-            
-        elif action_type == "structure_output":
-            structure = self._suggest_structure(description)
-            action_mapping["parameters"] = {
-                "structure_text": structure
-            }
+            elif action_type == "clarify_terminology":
+                if entities:
+                    entity = entities[0]
+                    definition = self._extract_definition(entity, description)
+                    action_mapping["parameters"] = {
+                        "term": entity,
+                        "definition": definition
+                    }
+            elif action_type == "add_constraint":
+                action_mapping["parameters"] = {
+                    "constraint_text": f"Pay careful attention to entity types when identifying {issue}"
+                }
+        
+        elif pattern_type == "calculation_error":
+            if action_type == "modify_workflow":
+                action_mapping["parameters"] = {
+                    "steps": [
+                        f"Clearly identify all numeric values needed for {issue}",
+                        f"Perform calculations step-by-step, showing your work",
+                        f"Verify calculations by double-checking for {issue}"
+                    ]
+                }
+            elif action_type == "add_explanation":
+                action_mapping["parameters"] = {
+                    "explanation_text": f"Always verify numerical calculations for {issue} by showing your work step-by-step",
+                    "target": "task"
+                }
+            elif action_type == "add_example":
+                action_mapping["parameters"] = {
+                    "example_text": f"Example calculation for {issue}: Show all steps of the calculation process, including intermediate values.",
+                    "example_type": "calculation"
+                }
+        
+        elif pattern_type == "lookup_error":
+            if action_type == "modify_workflow":
+                action_mapping["parameters"] = {
+                    "steps": [
+                        f"Carefully identify the table columns and structure",
+                        f"Look for the specific information related to {issue}",
+                        f"Extract the exact value(s) needed",
+                        f"Verify that the extracted information is correct"
+                    ]
+                }
+            elif action_type == "add_explanation":
+                action_mapping["parameters"] = {
+                    "explanation_text": f"When extracting information from tables, carefully identify the correct row and column for {issue}",
+                    "target": "task" 
+                }
+        
+        elif pattern_type == "classification_error":
+            if action_type == "add_domain_knowledge":
+                action_mapping["parameters"] = {
+                    "knowledge_text": f"When classifying {issue}, carefully consider the defining characteristics of each category",
+                    "domain": "classification"
+                }
+            elif action_type == "add_constraint":
+                action_mapping["parameters"] = {
+                    "constraint_text": f"Verify classification decisions for {issue} against the category definitions"
+                }
+        
+        # Set parameters for standard action types if not already set
+        if not action_mapping["parameters"]:
+            if action_type == "add_domain_knowledge":
+                action_mapping["parameters"] = {
+                    "knowledge_text": description,
+                    "domain": "general"
+                }
+                
+            elif action_type == "clarify_terminology":
+                if entities:
+                    entity = entities[0]
+                    definition = self._extract_definition(entity, description)
+                    action_mapping["parameters"] = {
+                        "term": entity,
+                        "definition": definition
+                    }
+                
+            elif action_type == "add_constraint":
+                action_mapping["parameters"] = {
+                    "constraint_text": description
+                }
+                
+            elif action_type == "modify_workflow":
+                steps = self._extract_steps(description)
+                action_mapping["parameters"] = {
+                    "steps": steps
+                }
+                
+            elif action_type == "add_explanation":
+                action_mapping["parameters"] = {
+                    "explanation_text": description,
+                    "target": "task"
+                }
+                
+            elif action_type == "add_example":
+                example = self._generate_example(description, entities)
+                action_mapping["parameters"] = {
+                    "example_text": example,
+                    "example_type": "input_output"
+                }
+                
+            elif action_type == "add_rule":
+                action_mapping["parameters"] = {
+                    "rule_text": f"Rule: {description}"
+                }
+                
+            elif action_type == "specify_format":
+                action_mapping["parameters"] = {
+                    "format_text": description
+                }
+                
+            elif action_type == "add_template":
+                action_mapping["parameters"] = {
+                    "template_text": f"Template for {issue}: {description}"
+                }
+                
+            elif action_type == "structure_output":
+                structure = self._suggest_structure(description)
+                action_mapping["parameters"] = {
+                    "structure_text": structure
+                }
         
         return action_mapping
     
@@ -305,8 +548,14 @@ class FeedbackGenerator:
             if match:
                 return match.group(1).strip()
         
+        # Extract from Expected vs Actual pattern
+        expected_actual_match = re.search(r'Expected: (.*?), Got: (.*?)$', description)
+        if expected_actual_match:
+            expected = expected_actual_match.group(1).strip()
+            return f"{term} refers to {expected}, not {expected_actual_match.group(2).strip()}"
+        
         # Fall back to using the description
-        return description
+        return f"{term} is important in this context: {description}"
     
     def _extract_steps(self, description: str) -> List[str]:
         """
@@ -345,6 +594,14 @@ class FeedbackGenerator:
         Returns:
             Example text.
         """
+        if "Expected: " in description and "Got: " in description:
+            # Extract from description
+            match = re.search(r'Expected: (.*?), Got: (.*?)$', description)
+            if match:
+                expected = match.group(1).strip()
+                actual = match.group(2).strip()
+                return f"Example: When given this problem, respond with '{expected}' not '{actual}'."
+        
         if not entities:
             return f"Example: {description}"
             

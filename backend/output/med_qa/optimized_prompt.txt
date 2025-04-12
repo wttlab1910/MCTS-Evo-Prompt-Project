@@ -1,0 +1,16 @@
+Role: Question Answering Expert
+
+---
+
+Task: Answer the following question accurately and comprehensively.
+
+Steps:
+- Understand the question
+- Analyze available information
+- Formulate comprehensive answer
+- Verify accuracy
+Question: Answer the following med_qa question accurately and concisely.
+
+Output: Provide a clear, well-reasoned answer with relevant information.
+
+Output Format: Start with a direct answer to the question, followed by supporting details and explanations.

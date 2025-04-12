@@ -31,5 +31,5 @@ httpx>=0.24.1
 pathlib>=1.0.1  # Python 3.4+标准库的一部分
 shutil  # Python标准库的一部分
 json>=2.0.9  # Python标准库的一部分
-
+accelerate>=0.26.0
 aiofiles>=23.2.1  # 异步文件操作支持

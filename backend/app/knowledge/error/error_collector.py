@@ -50,8 +50,14 @@ class ErrorCollector:
         # Process each example
         for i, example in enumerate(examples):
             example_id = example.get("id", f"e{i+1}")
-            example_text = example.get("text", "")
-            expected = example.get("expected", "")
+            
+            # Handle examples with different formats
+            if isinstance(example, dict) and "question" in example and "answer" in example:
+                example_text = example.get("question", "")
+                expected = example.get("answer", "")
+            else:
+                example_text = example.get("text", "")
+                expected = example.get("expected", "")
             
             if not example_text:
                 continue
@@ -93,9 +99,18 @@ class ErrorCollector:
         if self.llm and hasattr(self.llm, 'generate'):
             # For testing purposes without async
             for i, example in enumerate(examples):
-                example_id = example.get("id", f"e{i+1}")
-                example_text = example.get("text", "")
-                expected = example.get("expected", "")
+                # Handle examples with different formats
+                if isinstance(example, dict) and "question" in example and "answer" in example:
+                    example_id = example.get("id", f"e{i+1}")
+                    example_text = example.get("question", "")
+                    expected = example.get("answer", "")
+                else:
+                    example_id = example.get("id", f"e{i+1}")
+                    example_text = example.get("text", "")
+                    expected = example.get("expected", "")
+                
+                if not example_text:
+                    continue
                 
                 try:
                     # Combine prompt with example text
@@ -103,7 +118,19 @@ class ErrorCollector:
                     
                     # Try to get response if LLM supports sync
                     try:
-                        response = self.llm.generate(full_prompt)
+                        # Use loop.run_until_complete for async calls
+                        import asyncio
+                        try:
+                            loop = asyncio.get_event_loop()
+                            if loop.is_running():
+                                import nest_asyncio
+                                nest_asyncio.apply()
+                        except RuntimeError:
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            
+                        # Call the async method
+                        response = loop.run_until_complete(self.llm.generate(full_prompt))
                         actual = response.get("text", "")
                     except:
                         # Mock response for testing
@@ -120,19 +147,50 @@ class ErrorCollector:
         else:
             # When no LLM is available, generate mock errors for testing
             for i, example in enumerate(examples):
-                example_id = example.get("id", f"e{i+1}")
-                
-                # Only generate errors for some examples
-                if random.random() < 0.7:  # 70% chance of error for testing
-                    expected = example.get("expected", "")
-                    actual = self._mock_response(prompt_state, example)
+                if isinstance(example, dict):
+                    example_id = example.get("id", f"e{i+1}")
                     
-                    error = self._create_error(example_id, example, actual, expected)
-                    errors.append(error)
-                    self.collected_errors.append(error)
+                    # Only generate errors for some examples
+                    if random.random() < 0.7:  # 70% chance of error for testing
+                        if "answer" in example:
+                            expected = example.get("answer", "")
+                        else:
+                            expected = example.get("expected", "")
+                            
+                        actual = self._mock_response(prompt_state, example)
+                        
+                        error = self._create_error(example_id, example, actual, expected)
+                        errors.append(error)
+                        self.collected_errors.append(error)
         
         logger.debug(f"Collected {len(errors)} errors from {len(examples)} examples")
         return errors
+    
+    def process_errors_from_evaluation(self, errors: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Process errors from evaluation results.
+        
+        Args:
+            errors: List of error dictionaries from evaluation.
+            
+        Returns:
+            Processed error dictionaries.
+        """
+        processed_errors = []
+        
+        for error in errors:
+            example_id = error.get("id", f"e{len(processed_errors)}")
+            example_text = error.get("text", "")
+            expected = error.get("expected", "")
+            actual = error.get("actual", "")
+            error_type = error.get("error_type", self._determine_error_type(actual, expected))
+            
+            processed_error = self._create_error(example_id, {"text": example_text}, actual, expected, error_type)
+            processed_errors.append(processed_error)
+            self.collected_errors.append(processed_error)
+        
+        logger.debug(f"Processed {len(processed_errors)} errors from evaluation")
+        return processed_errors
     
     def _is_error(self, actual: str, expected: str) -> bool:
         """
@@ -148,7 +206,7 @@ class ErrorCollector:
         # Simple string comparison for now
         return actual.lower().strip() != expected.lower().strip()
     
-    def _create_error(self, example_id: str, example: Dict[str, Any], actual: str, expected: str) -> Dict[str, Any]:
+    def _create_error(self, example_id: str, example: Dict[str, Any], actual: str, expected: str, error_type: str = None) -> Dict[str, Any]:
         """
         Create an error dictionary.
         
@@ -157,12 +215,15 @@ class ErrorCollector:
             example: Example dictionary.
             actual: Actual response.
             expected: Expected response.
+            error_type: Type of error (optional).
             
         Returns:
             Error dictionary.
         """
         # Generate error description
-        error_type = self._determine_error_type(actual, expected)
+        if not error_type:
+            error_type = self._determine_error_type(actual, expected)
+            
         description = self._generate_error_description(error_type, example, actual, expected)
         
         # Create error dictionary
@@ -188,7 +249,7 @@ class ErrorCollector:
         Returns:
             Error type string.
         """
-        # Simple error type determination - in real implementation this would be more sophisticated
+        # More sophisticated error type determination
         if not actual:
             return "empty_response"
             
@@ -197,6 +258,21 @@ class ErrorCollector:
             
         if actual.lower() in expected.lower() or expected.lower() in actual.lower():
             return "partial_match"
+            
+        # Check for table-related errors
+        if any(word in expected.lower() for word in ["table", "column", "row", "count", "average"]):
+            if "count" in expected.lower() or any(c.isdigit() for c in expected):
+                return "calculation_error"
+            else:
+                return "lookup_error"
+                
+        # Check for numerical errors
+        if any(c.isdigit() for c in expected) and any(c.isdigit() for c in actual):
+            return "numerical_error"
+            
+        # Check for classification errors
+        if expected.lower() in ["yes", "no", "true", "false"]:
+            return "classification_error"
             
         # Default to entity confusion for testing
         return "entity_confusion"
@@ -215,21 +291,34 @@ class ErrorCollector:
             Error description.
         """
         example_text = example.get("text", "")
+        if not example_text and "question" in example:
+            example_text = example.get("question", "")
         
         if error_type == "empty_response":
-            return "Model returned an empty response."
+            return "Model returned an empty response when an answer was expected."
             
         if error_type == "incomplete_response":
-            return "Model returned an incomplete response."
+            return "Model returned an incomplete response, missing key information."
             
         if error_type == "partial_match":
-            return "Model's response partially matched the expected output."
+            return "Model's response partially matched the expected output but was not fully correct."
+            
+        if error_type == "lookup_error":
+            return "Model failed to correctly look up the required information from the table."
+            
+        if error_type == "calculation_error":
+            return "Model made an error in calculation or counting when processing numerical data."
+            
+        if error_type == "numerical_error":
+            return "Model provided an incorrect numerical answer."
+            
+        if error_type == "classification_error":
+            return "Model incorrectly classified or categorized the information."
             
         if error_type == "entity_confusion":
-            # For testing, generate descriptions about entity confusion
-            return f"Model confused entities in the text."
+            return "Model confused entities or concepts in the text."
         
-        return f"Error in model response."
+        return f"Error in model response: expected '{expected}' but got '{actual}'."
     
     def _mock_response(self, prompt_state: PromptState, example: Dict[str, Any]) -> str:
         """
@@ -246,7 +335,11 @@ class ErrorCollector:
         example_hash = hashlib.md5(str(example).encode()).hexdigest()
         hash_int = int(example_hash, 16)
         
-        expected = example.get("expected", "")
+        # Get expected answer from different possible formats
+        if "answer" in example:
+            expected = example.get("answer", "")
+        else:
+            expected = example.get("expected", "")
         
         # Different mock response types
         if hash_int % 3 == 0:

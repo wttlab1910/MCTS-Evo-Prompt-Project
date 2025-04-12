@@ -1,0 +1,60 @@
+{
+  "task_name": "cb",
+  "initial_prompt": "Role: Question Answering Expert\nTask: Answer the following question accurately and comprehensively.\nSteps:\n- Understand the question\n- Analyze available information\n- Formulate comprehensive answer\n- Verify accuracy\nQuestion: Answer the following cb question accurately and concisely.\nOutput: Provide a clear, well-reasoned answer with relevant information.\nOutput Format: Start with a direct answer to the question, followed by supporting details and explanations.",
+  "optimized_prompt": "Note: Pay special attention to edge cases and exceptions.\n\nRole: Question Answering Expert\nTask: Answer the following question accurately and comprehensively.\nSteps:\n- Carefully read the premise and hypothesis (Pay special attention to edge cases)\n- Identify key information and claims in the premise\n- Determine if the hypothesis must be true given the premise (entailment)\n- Determine if the hypothesis must be false given the premise (contradiction)\n- If neither, the relationship is neutral Question: Answer the following cb question accurately and concisely. Output: Provide a clear, well-reasoned answer with relevant information.\nQuestion: Answer the following cb question accurately and concisely.\nOutput: Provide a clear, well-reasoned answer with relevant information.\nOutput Format: Start with a direct answer to the question, followed by supporting details and explanations.\n\nConstraints:\n- Ensure all information is factually accurate",
+  "final_output": "Note: Pay special attention to edge cases and exceptions.\n\nRole: Question Answering Expert\n\n---\n\nTask: Answer the following question accurately and comprehensively.\n\nSteps:\n- Carefully read the premise and hypothesis (Pay special attention to edge cases)\n- Identify key information and claims in the premise\n- Determine if the hypothesis must be true given the premise (entailment) and Determine if the hypothesis must be false given the premise (contradiction)\n- If neither, the relationship is neutral Question: Answer the following cb question accurately and concisely. Output: Provide a clear, well-reasoned answer with relevant information.\n\nQuestion: Answer the following cb question accurately and concisely.\n\nOutput: Provide a clear, well-reasoned answer with relevant information.\n\nOutput Format: Start with a direct answer to the question, followed by supporting details and explanations.\n\nConstraints:\n- Ensure all information is factually accurate\n",
+  "optimization_stats": {
+    "iterations": 45,
+    "time": 516.8437888622284,
+    "best_reward": 1.25,
+    "tree_size": 51,
+    "max_depth": 5,
+    "evolutionary_operations": 12,
+    "mutations": 10,
+    "crossovers": 2,
+    "error_feedback_actions": 33,
+    "knowledge_integrations": 0
+  },
+  "selection_stats": {
+    "strategy": "composite",
+    "nodes_evaluated": 51,
+    "qualified_nodes": 22,
+    "best_composite_score": 1.0085502268037383,
+    "best_reward": 1.244867670944116,
+    "best_node_depth": 4,
+    "best_node_visits": 8,
+    "score_breakdown": {
+      "composite_score": 1.0085502268037383,
+      "reward_component": 0.8714073696608812,
+      "depth_bonus": 0.12,
+      "visit_stability": 0.01714285714285714,
+      "depth": 4,
+      "visits": 8
+    }
+  },
+  "processing_stats": {
+    "verification_level": "standard",
+    "verification_passed": true,
+    "verification_issues": [],
+    "token_optimization_applied": true,
+    "token_optimization_stats": {
+      "original_length": 947,
+      "optimized_length": 947,
+      "characters_reduced": 0,
+      "reduction_percent": 0.0,
+      "filler_words_removed": 0,
+      "phrases_replaced": 0,
+      "instructions_consolidated": 1,
+      "formatting_improvements": 0,
+      "sentences_shortened": 0,
+      "bullet_points_created": 0,
+      "abbreviations_used": 0
+    },
+    "components_present": {
+      "role": true,
+      "task": true,
+      "steps": true
+    },
+    "final_length": 960
+  }
+}

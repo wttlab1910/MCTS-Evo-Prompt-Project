@@ -1,0 +1,60 @@
+{
+  "task_name": "penguins_in_a_table",
+  "initial_prompt": "Role: Information Extraction Specialist\nTask: Extract the requested information from the provided content.\nSteps:\n- Read the source content\n- Identify target information\n- Extract relevant data\nContent: You are tasked with analyzing tabular data about penguins. First identify the structure of the table, then carefully extract the relevant information to answer the question. Provide a step-by-step analysis and verify your answer against the data in the table.\nOutput: Present the extracted information clearly.\nOutput Format: List the extracted information as key-value pairs or in a structured format appropriate for the requested information.",
+  "optimized_prompt": "Role: Information Extraction Specialist\nTask: Extract the requested information from the provided content.\nSteps:\n- Read the source content\n- Identify target information\n- Extract relevant data\nContent: You are tasked with analyzing tabular data about penguins. First identify the structure of the table, then carefully extract the relevant information to answer the question. Provide a step-by-step analysis and verify your answer against the data in the table.\nOutput: Present the extracted information clearly.\nOutput Format: List the extracted information as key-value pairs or in a structured format appropriate for the requested information.",
+  "final_output": "Role: Information Extraction Specialist\n\n---\n\nTask: Extract the requested information from the provided content.\n\nSteps:\n- Read the source content\n- Identify target information\n- Extract relevant data\nContent: You are tasked with analyzing tabular data about penguins. First identify the structure of the table, then carefully extract the relevant information to answer the question. Provide a step-by-step analysis and verify your answer against the data in the table.\n\nOutput: Present the extracted information clearly.\n\nOutput Format: List the extracted information as key-value pairs or in a structured format appropriate for the requested information.\n",
+  "optimization_stats": {
+    "iterations": 16,
+    "time": 626.9420115947723,
+    "best_reward": 0.7400000000000001,
+    "tree_size": 10,
+    "max_depth": 4,
+    "evolutionary_operations": 5,
+    "mutations": 3,
+    "crossovers": 2,
+    "error_feedback_actions": 4,
+    "knowledge_integrations": 7
+  },
+  "selection_stats": {
+    "strategy": "composite",
+    "nodes_evaluated": 10,
+    "qualified_nodes": 2,
+    "best_composite_score": 0.6103511712197458,
+    "best_reward": 0.6576445303139227,
+    "best_node_depth": 0,
+    "best_node_visits": 16,
+    "score_breakdown": {
+      "composite_score": 0.6103511712197458,
+      "reward_component": 0.46035117121974584,
+      "depth_bonus": 0.0,
+      "visit_stability": 0.15,
+      "depth": 0,
+      "visits": 16
+    }
+  },
+  "processing_stats": {
+    "verification_level": "standard",
+    "verification_passed": true,
+    "verification_issues": [],
+    "token_optimization_applied": true,
+    "token_optimization_stats": {
+      "original_length": 647,
+      "optimized_length": 647,
+      "characters_reduced": 0,
+      "reduction_percent": 0.0,
+      "filler_words_removed": 0,
+      "phrases_replaced": 0,
+      "instructions_consolidated": 0,
+      "formatting_improvements": 0,
+      "sentences_shortened": 0,
+      "bullet_points_created": 0,
+      "abbreviations_used": 0
+    },
+    "components_present": {
+      "role": true,
+      "task": true,
+      "steps": true
+    },
+    "final_length": 657
+  }
+}

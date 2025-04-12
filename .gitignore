@@ -5,7 +5,7 @@ __pycache__/
 
 # C extensions
 *.so
-
+backend/data/models/prompt_expansion_model.pt/checkpoint-6/model.safetensors
 # Distribution / packaging
 .Python
 build/

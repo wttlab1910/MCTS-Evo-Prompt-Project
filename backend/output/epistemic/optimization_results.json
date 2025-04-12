@@ -1,0 +1,60 @@
+{
+  "task_name": "epistemic",
+  "initial_prompt": "Role: Question Answering Expert\nTask: Answer the following question accurately and comprehensively.\nSteps:\n- Understand the question\n- Analyze available information\n- Formulate comprehensive answer\n- Verify accuracy\nQuestion: Answer the following epistemic question accurately and concisely.\nOutput: Provide a clear, well-reasoned answer with relevant information.\nOutput Format: Start with a direct answer to the question, followed by supporting details and explanations.",
+  "optimized_prompt": "Role: Question Answering Expert\nTask: Answer the following question accurately and comprehensively.\nSteps:\n- Understand the question\n- Analyze available information\n- Formulate comprehensive answer\n- Verify accuracy\nQuestion: Answer the following epistemic question accurately and concisely.\nOutput: Provide a clear, well-reasoned answer with relevant information.\nOutput Format: Start with a direct answer to the question, followed by supporting details and explanations.",
+  "final_output": "Role: Question Answering Expert\n\n---\n\nTask: Answer the following question accurately and comprehensively.\n\nSteps:\n- Understand the question\n- Analyze available information\n- Formulate comprehensive answer\n- Verify accuracy\nQuestion: Answer the following epistemic question accurately and concisely.\n\nOutput: Provide a clear, well-reasoned answer with relevant information.\n\nOutput Format: Start with a direct answer to the question, followed by supporting details and explanations.\n",
+  "optimization_stats": {
+    "iterations": 42,
+    "time": 607.9195392131805,
+    "best_reward": 0.7333333333333334,
+    "tree_size": 15,
+    "max_depth": 4,
+    "evolutionary_operations": 19,
+    "mutations": 7,
+    "crossovers": 12,
+    "error_feedback_actions": 23,
+    "knowledge_integrations": 0
+  },
+  "selection_stats": {
+    "strategy": "composite",
+    "nodes_evaluated": 15,
+    "qualified_nodes": 5,
+    "best_composite_score": 0.6309082869692544,
+    "best_reward": 0.6870118385275062,
+    "best_node_depth": 0,
+    "best_node_visits": 42,
+    "score_breakdown": {
+      "composite_score": 0.6309082869692544,
+      "reward_component": 0.48090828696925436,
+      "depth_bonus": 0.0,
+      "visit_stability": 0.15,
+      "depth": 0,
+      "visits": 42
+    }
+  },
+  "processing_stats": {
+    "verification_level": "standard",
+    "verification_passed": true,
+    "verification_issues": [],
+    "token_optimization_applied": true,
+    "token_optimization_stats": {
+      "original_length": 472,
+      "optimized_length": 472,
+      "characters_reduced": 0,
+      "reduction_percent": 0.0,
+      "filler_words_removed": 0,
+      "phrases_replaced": 0,
+      "instructions_consolidated": 0,
+      "formatting_improvements": 0,
+      "sentences_shortened": 0,
+      "bullet_points_created": 0,
+      "abbreviations_used": 0
+    },
+    "components_present": {
+      "role": true,
+      "task": true,
+      "steps": true
+    },
+    "final_length": 482
+  }
+}

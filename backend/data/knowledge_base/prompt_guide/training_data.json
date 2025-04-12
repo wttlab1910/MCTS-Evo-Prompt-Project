@@ -1,0 +1,58 @@
+[
+  {
+    "input": "Help me classification this content",
+    "target": "As a classification expert, analyze the following text and categorize it into one of these classes: relevant categories.\n\nText: {content}\n\nFirst, identify key features in the text relevant to classification.\nThen, determine which category best matches these features.\n\nClassification:"
+  },
+  {
+    "input": "Help me code_generation this content",
+    "target": "Role: Senior {language} Developer\nTask: Create efficient, well-documented code to solve the described problem.\n\nSteps:\n- Analyze the requirements thoroughly\n- Design an approach that balances efficiency and readability\n- Implement the solution with appropriate error handling\n- Add clear comments and documentation\n- Test the code with example inputs\n\nRequirements: {content}\n\nSolution:"
+  },
+  {
+    "input": "Help me extraction this content",
+    "target": "Role: Information Extraction Specialist\nTask: Extract all relevant information from the text according to the specified categories.\n\nSteps:\n- Carefully read and analyze the provided content\n- Identify all instances of requested information\n- Present extracted information in a structured format\n- Verify completeness and accuracy of extraction\n\nContent: {content}\n\nExtracted Information:"
+  },
+  {
+    "input": "Help me summarization this content",
+    "target": "Role: Content Summarization Specialist\nTask: Create a concise summary of the following text while preserving the key information.\n\nSteps:\n- Read the full content carefully\n- Identify the main topic and key points\n- Organize important details in order of relevance\n- Create a cohesive summary that captures the essence of the original\n\nContent: {content}\n\nSummary:"
+  },
+  {
+    "input": "Use Chain of Thought Prompting for math_problem",
+    "target": "Solve the following problem step by step:\n\nIf a shirt costs $15 and is discounted by 20%, then further discounted by an additional 10%, what is the final price?\n\nStep 1: Calculate the price after the first 20% discount.\n$15 \u00d7 0.8 = $12 (after 20% discount)\n\nStep 2: Calculate the price after the additional 10% discount.\n$12 \u00d7 0.9 = $10.80 (after additional 10% discount)\n\nStep 3: The final price is $10.80."
+  },
+  {
+    "input": "Use Chain of Thought Prompting for logical_reasoning",
+    "target": "Let's think about this logically:\n\nIf all A are B, and all B are C, then are all A also C?\n\nStep 1: Let's define what we know.\n- All A are B (every element in set A is also in set B)\n- All B are C (every element in set B is also in set C)\n\nStep 2: Let's consider any element in set A.\n- Since all A are B, this element must also be in set B.\n- Since all B are C, any element in set B must also be in set C.\n\nStep 3: Therefore, any element in set A must also be in set C.\n\nConclusion: Yes, all A are also C."
+  },
+  {
+    "input": "Use Few-Shot for classification",
+    "target": "Classify the sentiment of each review as positive, negative, or neutral.\n\nReview: The food was delicious and the service was excellent.\nSentiment: Positive\n\nReview: The room was okay but the bathroom needed cleaning.\nSentiment: Neutral\n\nReview: We waited for an hour and the staff was rude.\nSentiment: Negative\n\nReview: I think the vacation is okay.\nSentiment:"
+  },
+  {
+    "input": "Use Few-Shot for entity_extraction",
+    "target": "Extract all person names from the text.\n\nText: President Biden spoke with Chancellor Merkel yesterday about the upcoming summit.\nPerson names: Biden, Merkel\n\nText: Tesla CEO Elon Musk announced new features for the Model S.\nPerson names: Elon Musk\n\nText: John visited Paris with his friend Sarah in June.\nPerson names:"
+  },
+  {
+    "input": "Use Zero-Shot Prompting for sentiment_classification",
+    "target": "Classify the text into neutral, negative or positive.\nText: I think the vacation is okay.\nSentiment:"
+  },
+  {
+    "input": "Use Zero-Shot Prompting for summarization",
+    "target": "Summarize the following text in 2-3 sentences:\n\nThe study examined the effects of caffeine on cognitive performance in adults aged 25-45. Researchers found that moderate caffeine consumption (200-300mg) improved reaction time and short-term memory. However, they also noted that doses exceeding 400mg produced diminishing returns and increased anxiety in some participants. The study concluded that the optimal cognitive benefits occur at different dosages depending on individual factors such as body weight and caffeine tolerance."
+  },
+  {
+    "input": "Use Zero-Shot Prompting for code_generation",
+    "target": "Write a Python function that takes a list of numbers and returns the sum of all even numbers in the list."
+  },
+  {
+    "input": "Apply Chain of Thought Prompting technique",
+    "target": "Let's solve this problem step by step:\n\ninput content\n\nStep 1: {first_step_description}\n[reasoning for first step]\n\nStep 2: {second_step_description}\n[reasoning for second step]\n\n[additional steps as needed]\n\nFinal answer: "
+  },
+  {
+    "input": "Apply Few-Shot technique",
+    "target": "Here are some examples of how to {task}:\n\n{examples}\n\nNow, please {task} for the following:\n\ninput content\n\nOutput:"
+  },
+  {
+    "input": "Apply Zero-Shot Prompting technique",
+    "target": "Classify the following text as relevant categories.\nText: input content\nClassification:"
+  }
+]

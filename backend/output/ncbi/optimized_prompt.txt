@@ -1,0 +1,12 @@
+Role: Task Specialist
+
+---
+
+Task: Identify all disease entities mentioned in the text. Return your answer as a list of entities inside curly braces, like this: {entity1, entity2}. If no disease entities are present, return an empty list: {}
+Steps:
+- Understand the requirements
+- Process the information
+- Generate appropriate response
+Output: Provide a well-structured, comprehensive response.
+
+Output Format: Provide a clear, well-structured response.

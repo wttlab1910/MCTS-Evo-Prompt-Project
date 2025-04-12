@@ -1,0 +1,138 @@
+# 简化的命令行指令
+
+## 使用不同模型的命令
+
+### Mistral模型（较小尺寸，适合快速测试）
+
+```bash
+# 企鹅表格任务
+python run_task.py --task penguins_in_a_table --model mistral
+
+# Commit Bench任务
+python run_task.py --task cb --model mistral
+
+# 认知判断任务
+python run_task.py --task epistemic --model mistral
+
+# 医学问答任务
+python run_task.py --task med_qa --model mistral
+
+# NCBI疾病语料库任务
+python run_task.py --task ncbi --model mistral
+
+# 物体计数任务
+python run_task.py --task object_counting --model mistral
+
+# 主观性分析任务
+python run_task.py --task subj --model mistral
+
+# 问题分类任务
+python run_task.py --task trec --model mistral
+```
+
+### Gemma模型（中等尺寸，平衡性能和速度）
+
+```bash
+# 企鹅表格任务
+python run_task.py --task penguins_in_a_table --model gemma:7b
+
+# Commit Bench任务
+python run_task.py --task cb --model gemma:7b
+
+# 认知判断任务
+python run_task.py --task epistemic --model gemma:7b
+
+# 医学问答任务
+python run_task.py --task med_qa --model gemma:7b
+
+# NCBI疾病语料库任务
+python run_task.py --task ncbi --model gemma:7b
+
+# 物体计数任务
+python run_task.py --task object_counting --model gemma:7b
+
+# 主观性分析任务
+python run_task.py --task subj --model gemma:7b
+
+# 问题分类任务
+python run_task.py --task trec --model gemma:7b
+```
+
+### Llama模型（优秀的综合性能）
+
+```bash
+# 企鹅表格任务
+python run_task.py --task penguins_in_a_table --model llama:13b
+
+# Commit Bench任务
+python run_task.py --task cb --model llama:13b
+
+# 认知判断任务
+python run_task.py --task epistemic --model llama:13b
+
+# 医学问答任务
+python run_task.py --task med_qa --model llama:13b
+
+# NCBI疾病语料库任务
+python run_task.py --task ncbi --model llama:13b
+
+# 物体计数任务
+python run_task.py --task object_counting --model llama:13b
+
+# 主观性分析任务
+python run_task.py --task subj --model llama:13b
+
+# 问题分类任务
+python run_task.py --task trec --model llama:13b
+```
+
+### DeepSeek模型（最大尺寸，最佳性能）
+
+```bash
+# 企鹅表格任务
+python run_task.py --task penguins_in_a_table --model deepseek-r1:32b
+
+# Commit Bench任务
+python run_task.py --task cb --model deepseek-r1:32b
+
+# 认知判断任务
+python run_task.py --task epistemic --model deepseek-r1:32b
+
+# 医学问答任务
+python run_task.py --task med_qa --model deepseek-r1:32b
+
+# NCBI疾病语料库任务
+python run_task.py --task ncbi --model deepseek-r1:32b
+
+# 物体计数任务
+python run_task.py --task object_counting --model deepseek-r1:32b
+
+# 主观性分析任务
+python run_task.py --task subj --model deepseek-r1:32b
+
+# 问题分类任务
+python run_task.py --task trec --model deepseek-r1:32b
+```
+
+## 批处理脚本示例
+
+为了方便批量运行不同的任务和模型，你可以使用以下脚本：
+
+```bash
+#!/bin/bash
+
+# 设置模型
+MODEL="mistral"  # 可选: mistral, gemma:7b, llama:13b, deepseek-r1:32b
+
+# 运行所有任务
+TASKS=("penguins_in_a_table" "cb" "epistemic" "med_qa" "ncbi" "object_counting" "subj" "trec")
+
+for TASK in "${TASKS[@]}"
+do
+  echo "Running task: $TASK with model: $MODEL"
+  python run_task.py --task $TASK --model $MODEL
+  echo "-----------------------------------------"
+done
+```
+
+保存为`run_all.sh`并使用`bash run_all.sh`运行

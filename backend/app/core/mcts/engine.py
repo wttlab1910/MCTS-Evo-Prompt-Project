@@ -4,6 +4,7 @@ Monte Carlo Tree Search (MCTS) engine for prompt optimization.
 from typing import Dict, Any, List, Optional, Tuple, Union, Callable
 import time
 import random
+import re
 from app.core.mcts.node import MCTSNode
 from app.core.mcts.selection import UCTSelector
 from app.core.mcts.expansion import ActionExpander
@@ -34,9 +35,11 @@ class MCTSEngine:
         max_iterations: int = 100,
         time_limit: float = 60.0,
         exploration_weight: float = 1.41,
+        max_depth: int = 4,
         max_children_per_expansion: int = 5,
         evolution_config: Optional[Dict[str, Any]] = None,
-        action_generator: Optional[Callable[[PromptState], List[Action]]] = None
+        action_generator: Optional[Callable[[PromptState], List[Action]]] = None,
+        error_feedback_fn: Optional[Callable[[PromptState], List[Action]]] = None
     ):
         """
         Initialize an MCTS engine.
@@ -44,17 +47,20 @@ class MCTSEngine:
         Args:
             transition: State transition function.
             reward_function: Reward function for evaluating states.
-            max_iterations: Maximum number of iterations to run.
+            max_iterations: Maximum number of iterations.
             time_limit: Maximum time to run in seconds.
             exploration_weight: Exploration weight for UCT.
+            max_depth: Maximum depth of the search tree.
             max_children_per_expansion: Maximum number of children to create per expansion.
             evolution_config: Configuration for evolutionary operations.
             action_generator: Function to generate actions for a state.
+            error_feedback_fn: Function to generate error feedback actions.
         """
         self.transition = transition
         self.reward_function = reward_function
         self.max_iterations = max_iterations
         self.time_limit = time_limit
+        self.max_depth = max_depth
         
         # Initialize MCTS components
         self.selector = UCTSelector(exploration_weight=exploration_weight)
@@ -79,6 +85,9 @@ class MCTSEngine:
         # Action generator
         self.action_generator = action_generator
         
+        # Error feedback function
+        self.error_feedback_fn = error_feedback_fn
+        
         # Statistics
         self.stats = {
             "total_iterations": 0,
@@ -86,14 +95,16 @@ class MCTSEngine:
             "evolutionary_operations": 0,
             "mutations": 0,
             "crossovers": 0,
-            "error_feedback_actions": 0
+            "error_feedback_actions": 0,
+            "knowledge_integrations": 0
         }
         
         # Root node reference for visualization
         self._root_node = None
         
         logger.debug(f"Initialized MCTSEngine with max_iterations={max_iterations}, "
-                     f"time_limit={time_limit}, exploration_weight={exploration_weight}")
+                     f"time_limit={time_limit}, exploration_weight={exploration_weight}, "
+                     f"max_depth={max_depth}")
     
     def optimize(self, initial_state: PromptState) -> Tuple[PromptState, Dict[str, Any]]:
         """
@@ -173,6 +184,45 @@ class MCTSEngine:
         # Determine operation type based on rates
         operation = self._select_operation_type()
         
+        # Add knowledge integration operation if appropriate
+        knowledge_integration_strategy = self.evolution_config.get("knowledge_integration_strategy", "adaptive")
+        knowledge_items = self.evolution_config.get("domain_knowledge", [])
+        
+        # Chance to apply knowledge integration
+        knowledge_integration_rate = self.evolution_config.get("knowledge_integration_rate", 0.3)
+        apply_knowledge = random.random() < knowledge_integration_rate
+        
+        if apply_knowledge and knowledge_items:
+            if knowledge_integration_strategy == "early" and root.visit_count < 10:
+                # Apply knowledge early in the search
+                self._run_knowledge_integration_iteration(root, knowledge_items)
+                return
+            elif knowledge_integration_strategy == "error_guided" and operation == "error_feedback":
+                # Replace some error feedback operations with knowledge integration
+                if random.random() < 0.5:  # 50% chance to replace
+                    self._run_knowledge_integration_iteration(root, knowledge_items)
+                    return
+            elif knowledge_integration_strategy == "interleaved":
+                # Randomly interleave knowledge integration
+                if random.random() < 0.3:  # 30% chance
+                    self._run_knowledge_integration_iteration(root, knowledge_items)
+                    return
+            elif knowledge_integration_strategy == "adaptive":
+                # Apply knowledge based on search progress
+                progress = self.stats["total_iterations"] / self.max_iterations
+                
+                if progress < 0.3:
+                    # Early phase: higher chance for knowledge
+                    if random.random() < 0.5:
+                        self._run_knowledge_integration_iteration(root, knowledge_items)
+                        return
+                elif progress < 0.7:
+                    # Middle phase: moderate chance
+                    if random.random() < 0.3:
+                        self._run_knowledge_integration_iteration(root, knowledge_items)
+                        return
+        
+        # Run the operation as before
         if operation == "error_feedback":
             # Run error feedback iteration
             self._run_error_feedback_iteration(root)
@@ -191,6 +241,168 @@ class MCTSEngine:
             # Run standard MCTS iteration
             self._run_standard_iteration(root)
     
+    def _integrate_domain_knowledge(self, node: MCTSNode, knowledge_items: List[Dict[str, Any]]) -> Optional[MCTSNode]:
+        """
+        Integrate domain knowledge into a node.
+        
+        Args:
+            node: Node to enhance with knowledge.
+            knowledge_items: Knowledge items to integrate.
+            
+        Returns:
+            New node with integrated knowledge, or None if integration failed.
+        """
+        if not knowledge_items:
+            return None
+            
+        # Select most relevant knowledge item based on current errors
+        selected_item = self._select_relevant_knowledge(node, knowledge_items)
+        if not selected_item:
+            return None
+            
+        # Create appropriate action based on knowledge type
+        knowledge_type = selected_item.get("type", "")
+        
+        if knowledge_type == "conceptual_knowledge":
+            action = create_action("add_domain_knowledge", parameters={
+                "knowledge_text": selected_item.get("statement", ""),
+                "domain": selected_item.get("metadata", {}).get("domain", "general")
+            })
+        elif knowledge_type == "procedural_knowledge":
+            steps = selected_item.get("procedure_steps", [])
+            if steps:
+                action = create_action("modify_workflow", parameters={
+                    "steps": steps
+                })
+            else:
+                action = create_action("add_explanation", parameters={
+                    "explanation_text": selected_item.get("statement", ""),
+                    "target": "task"
+                })
+        elif knowledge_type == "entity_classification":
+            action = create_action("clarify_terminology", parameters={
+                "term": selected_item.get("entities", [""])[0] if selected_item.get("entities") else "",
+                "definition": selected_item.get("statement", "")
+            })
+        elif knowledge_type == "format_specification":
+            action = create_action("specify_format", parameters={
+                "format_text": selected_item.get("statement", "")
+            })
+        elif knowledge_type == "task_instruction":
+            # 修改此处：使用add_rule而不是add_instruction
+            action = create_action("add_rule", parameters={
+                "rule_text": selected_item.get("statement", ""),
+                "priority": "high"
+            })
+        else:
+            # Default to adding as domain knowledge
+            action = create_action("add_domain_knowledge", parameters={
+                "knowledge_text": selected_item.get("statement", ""),
+                "domain": "general"
+            })
+        
+        # Apply action to create new node
+        if action.is_applicable(node.state):
+            child_node = self.expander.expand_with_action(node, action)
+            
+            if child_node:
+                # Mark as knowledge integration
+                child_node.add_evolution_operation(f"knowledge_integration_{knowledge_type}")
+                
+                # Simulate and backpropagate
+                reward = self.simulator.simulate(child_node)
+                self.backpropagator.backpropagate(child_node, reward)
+                
+                return child_node
+        
+        return None
+
+    def _select_relevant_knowledge(self, node: MCTSNode, knowledge_items: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """
+        Select the most relevant knowledge item for the current node state.
+        
+        Args:
+            node: Current node.
+            knowledge_items: Available knowledge items.
+            
+        Returns:
+            Most relevant knowledge item or None if none is relevant.
+        """
+        # Get node state and errors
+        state = node.state
+        errors = node.error_feedback
+        
+        # If no errors, select based on text content
+        if not errors:
+            # Extract key terms from state text
+            text = state.text.lower()
+            terms = set(re.findall(r'\b[a-z]{4,}\b', text))
+            
+            # Score knowledge items by term overlap
+            scores = []
+            for item in knowledge_items:
+                item_text = item.get("statement", "").lower()
+                item_terms = set(re.findall(r'\b[a-z]{4,}\b', item_text))
+                
+                overlap = len(terms.intersection(item_terms))
+                scores.append((item, overlap))
+            
+            # Return highest scoring item
+            scores.sort(key=lambda x: x[1], reverse=True)
+            return scores[0][0] if scores else None
+        
+        # If errors exist, select based on error patterns
+        else:
+            # Extract error types and entities
+            error_types = set()
+            error_entities = set()
+            
+            for error in errors:
+                error_types.add(error.get("type", ""))
+                for entity in error.get("entities", []):
+                    error_entities.add(entity)
+            
+            # Score knowledge items by relevance to errors
+            scores = []
+            for item in knowledge_items:
+                score = 0
+                
+                # Check for type matches
+                if item.get("type", "") in error_types:
+                    score += 3
+                    
+                # Check for entity matches
+                item_entities = set(item.get("entities", []))
+                entity_overlap = len(error_entities.intersection(item_entities))
+                score += entity_overlap * 2
+                
+                scores.append((item, score))
+            
+            # Return highest scoring item
+            scores.sort(key=lambda x: x[1], reverse=True)
+            return scores[0][0] if scores and scores[0][1] > 0 else None
+
+    def _run_knowledge_integration_iteration(self, root: MCTSNode, knowledge_items: List[Dict[str, Any]]) -> None:
+        """
+        Run a knowledge integration iteration.
+        
+        Args:
+            root: Root node of the MCTS tree.
+            knowledge_items: Domain knowledge items to potentially integrate.
+        """
+        # Selection: select a promising node to enhance with knowledge
+        selected_node = self._select(root)
+        
+        # Try to integrate knowledge
+        enhanced_node = self._integrate_domain_knowledge(selected_node, knowledge_items)
+        
+        # If integration was successful, increment counter
+        if enhanced_node:
+            self.stats["knowledge_integrations"] += 1
+        # If integration failed, fall back to standard iteration
+        else:
+            self._run_standard_iteration(root)
+    
     def _run_standard_iteration(self, root: MCTSNode) -> None:
         """
         Run a standard MCTS iteration (selection, expansion, simulation, backpropagation).
@@ -199,7 +411,7 @@ class MCTSEngine:
             root: Root node of the MCTS tree.
         """
         # Selection: select a promising node to expand
-        selected_node = self.selector.select(root)
+        selected_node = self._select(root)
         
         # Expansion: create new child nodes by applying actions
         if self.action_generator:
@@ -207,7 +419,7 @@ class MCTSEngine:
         else:
             available_actions = self.expander.generate_actions_for_node(selected_node)
         
-        expanded_nodes = self.expander.expand(selected_node, available_actions)
+        expanded_nodes = self._expand(selected_node, available_actions)
         
         # If no nodes were expanded, use the selected node
         if not expanded_nodes:
@@ -220,6 +432,43 @@ class MCTSEngine:
             reward = self.simulator.simulate(node)
             self.backpropagator.backpropagate(node, reward)
     
+    def _select(self, root: MCTSNode) -> MCTSNode:
+        """
+        Select a promising node to expand, respecting the max_depth constraint.
+        
+        Args:
+            root: Root node of the MCTS tree.
+            
+        Returns:
+            Selected node.
+        """
+        # Use the selector to find a promising node
+        current = self.selector.select(root)
+        
+        # If the current node is too deep, backtrack to a shallower node
+        while current.generation > self.max_depth:
+            current = current.parent or root
+        
+        return current
+    
+    def _expand(self, node: MCTSNode, available_actions: List[Action]) -> List[MCTSNode]:
+        """
+        Expand a node by applying actions, respecting the max_depth constraint.
+        
+        Args:
+            node: Node to expand.
+            available_actions: List of actions that can be applied.
+            
+        Returns:
+            List of newly created child nodes.
+        """
+        # Don't expand beyond max_depth
+        if node.generation >= self.max_depth:
+            return []
+            
+        # Use the expander to create new child nodes
+        return self.expander.expand(node, available_actions)
+    
     def _run_error_feedback_iteration(self, root: MCTSNode) -> None:
         """
         Run an error feedback iteration, which focuses on addressing specific errors.
@@ -227,12 +476,42 @@ class MCTSEngine:
         Args:
             root: Root node of the MCTS tree.
         """
-        # Select a promising node to improve
-        selected_node = self.selector.select(root)
+        # Select a promising node to improve, respecting max_depth
+        selected_node = self._select(root)
         
-        # TODO: In a real implementation, this would use error feedback from an LLM
-        # For now, we'll create some synthetic error feedback actions
+        # Don't apply error feedback beyond max_depth
+        if selected_node.generation >= self.max_depth:
+            self._run_standard_iteration(root)
+            return
         
+        # Check if we have a custom error feedback function
+        if self.error_feedback_fn:
+            # Use the provided error feedback function to generate actions
+            try:
+                feedback_actions = self.error_feedback_fn(selected_node.state)
+                
+                if feedback_actions:
+                    # Apply one of the feedback actions
+                    action = random.choice(feedback_actions)
+                    if action.is_applicable(selected_node.state):
+                        child_node = self.expander.expand_with_action(selected_node, action)
+                        
+                        if child_node:
+                            # Mark as error feedback
+                            child_node.add_error_feedback({
+                                "type": "error_feedback",
+                                "description": "Error-based feedback from evaluation",
+                                "action": str(action)
+                            })
+                            
+                            # Simulate and backpropagate
+                            reward = self.simulator.simulate(child_node)
+                            self.backpropagator.backpropagate(child_node, reward)
+                            return
+            except Exception as e:
+                logger.error(f"Error during error feedback: {e}")
+        
+        # Fallback to synthetic error feedback if no custom function or it failed
         error_actions = [
             create_action("add_constraint", parameters={
                 "constraint_text": "Ensure all information is factually accurate",
@@ -276,8 +555,13 @@ class MCTSEngine:
         Args:
             root: Root node of the MCTS tree.
         """
-        # Select a node to mutate (favor nodes with higher rewards)
+        # Select a node to mutate (favor nodes with higher rewards), respecting max_depth
         selected_node = self._select_node_for_evolution(root)
+        
+        # Don't apply mutation beyond max_depth
+        if selected_node.generation >= self.max_depth:
+            self._run_standard_iteration(root)
+            return
         
         # Apply mutation
         mutated_state = self.mutator.mutate(selected_node.state)
@@ -308,8 +592,14 @@ class MCTSEngine:
             self._run_standard_iteration(root)
             return
         
-        # Select two parent nodes for crossover
+        # Select two parent nodes for crossover, respecting max_depth
         parent1 = self._select_node_for_evolution(root)
+        
+        # Don't apply crossover beyond max_depth
+        if parent1.generation >= self.max_depth:
+            self._run_standard_iteration(root)
+            return
+        
         parent2 = self._select_node_for_evolution(root, exclude=parent1)
         
         # Apply crossover
@@ -371,9 +661,9 @@ class MCTSEngine:
         
         # Early stage (first 30% of iterations)
         if progress < 0.3:
-            mutation_rate = 0.4
-            crossover_rate = 0.4
-            error_feedback_rate = 0.2
+            mutation_rate = 0.3
+            crossover_rate = 0.3
+            error_feedback_rate = 0.4
         # Middle stage (30%-70% of iterations)
         elif progress < 0.7:
             mutation_rate = 0.2
@@ -412,18 +702,21 @@ class MCTSEngine:
         nodes = []
         self._collect_nodes_with_visits(root, nodes, exclude=exclude)
         
-        if not nodes:
+        # Filter nodes to respect max_depth constraint for adding children
+        valid_nodes = [node for node in nodes if node.generation < self.max_depth]
+        
+        if not valid_nodes:
             return root
         
         # Weight selection by reward
-        weights = [max(0.01, node.avg_reward) for node in nodes]
+        weights = [max(0.01, node.avg_reward) for node in valid_nodes]
         total_weight = sum(weights)
         
         if total_weight > 0:
             weights = [w / total_weight for w in weights]
-            return random.choices(nodes, weights=weights, k=1)[0]
+            return random.choices(valid_nodes, weights=weights, k=1)[0]
         else:
-            return random.choice(nodes)
+            return random.choice(valid_nodes)
     
     def _collect_nodes_with_visits(
         self, 

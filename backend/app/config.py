@@ -1,6 +1,16 @@
 """
 Configuration management for the application.
 """
+
+# llama3.3:latest    a6eb4748fd29    42 GB     
+# Error: model requires more system memory (40.9 GiB) than is available (40.0 GiB)
+# deepseek-r1:32b    38056bbcbb2d    19 GB     
+
+# gemma3:12b         f4031aab637d    8.1 GB    
+
+# mistral:latest     f974a74358d6    4.1 GB    
+# llama3.1:latest    46e0c10c039e    4.9 GB    
+
 import os
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -10,6 +20,8 @@ import json
 BASE_DIR = Path(__file__).resolve().parent.parent
 APP_DIR = BASE_DIR / "app"
 DATA_DIR = BASE_DIR / "data"
+# app/config.py
+PROMPT_GUIDE_DIR = Path(__file__).resolve().parent.parent / "data" / "knowledge_base" / "prompt_guide"
 
 # Knowledge base directories
 KNOWLEDGE_BASE_DIR = DATA_DIR / "knowledge_base"

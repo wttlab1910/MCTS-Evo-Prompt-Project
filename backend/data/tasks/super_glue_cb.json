@@ -1,0 +1,26 @@
+{
+  "train": [
+    {
+      "premise": "The man is sleeping.",
+      "hypothesis": "The man is awake.",
+      "label": 1
+    },
+    {
+      "premise": "The bird is flying.",
+      "hypothesis": "The bird has wings.",
+      "label": 0
+    }
+  ],
+  "validation": [
+    {
+      "premise": "The cat is on the mat.",
+      "hypothesis": "The mat is under the cat.",
+      "label": 0
+    },
+    {
+      "premise": "It's raining outside.",
+      "hypothesis": "The ground is wet.",
+      "label": 0
+    }
+  ]
+}

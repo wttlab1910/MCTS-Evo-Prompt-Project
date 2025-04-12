@@ -1,0 +1,24 @@
+Role: Classification Expert
+
+---
+
+Task: Classify the following content into appropriate categories.
+
+Steps:
+- Analyze the provided content (Pay special attention to edge cases)
+- Identify key features
+- Assign appropriate category
+Rules:
+- The TREC question classification task requires determining what type of information a question is asking for.
+
+Content: Classify the following question into one of these categories: (A) Abbreviation, (B) Entity, (C) Description and abstract concept, (D) Human being, (E) Location, or (F) Numeric value.
+
+Output: Provide the classification result with a brief explanation.
+
+Output Format: Provide the classification result in the format 'Category: [category name]' followed by a brief explanation.
+
+Context: This task requires careful analysis and systematic approach.
+
+Example:
+
+Examples: 'What is the capital of France?' ¡ú E (Location), 'Who invented the telephone?' ¡ú D (Human), 'When was the Declaration of Independence signed?' ¡ú F (Numeric value)

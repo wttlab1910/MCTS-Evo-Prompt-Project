@@ -1,8 +1,0 @@
-{
-  "classification": "Role: {role}\nTask: Classify the following content into appropriate categories.\nSteps:\n{steps}\nContent: {content}\nOutput: Provide the classification result with a brief explanation.",
-  "extraction": "Role: {role}\nTask: Extract the requested information from the provided content.\nSteps:\n{steps}\nContent: {content}\nOutput: Present the extracted information clearly.",
-  "summarization": "Role: {role}\nTask: Summarize the following content effectively.\nSteps:\n{steps}\nContent: {content}\nOutput: Provide a concise summary capturing the main points.",
-  "generation": "Role: {role}\nTask: Generate content based on the given specifications.\nSteps:\n{steps}\nRequirements: {content}\nOutput: Provide well-structured, comprehensive content that fulfills all requirements.",
-  "question_answering": "Role: {role}\nTask: Answer the following question accurately and comprehensively.\nSteps:\n{steps}\nQuestion: {content}\nOutput: Provide a clear, well-reasoned answer with relevant information.",
-  "default": "Role: {role}\nTask: {content}\nSteps:\n{steps}\nOutput: Provide a well-structured, comprehensive response."
-}

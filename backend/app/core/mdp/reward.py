@@ -1,7 +1,7 @@
 """
-Module for reward functions in the MDP framework.
+Reward function for evaluating prompt states.
 """
-from typing import Dict, Any, List, Optional, Union, Callable, Tuple
+from typing import Dict, Any, List, Optional, Callable
 from app.utils.logger import get_logger
 from app.core.mdp.state import PromptState
 
@@ -9,9 +9,10 @@ logger = get_logger("mdp.reward")
 
 class RewardFunction:
     """
-    Calculates rewards for states in the MDP framework.
+    Reward function for evaluating prompt states.
     
-    The reward function evaluates the quality of a prompt state based on various metrics.
+    This reward function combines multiple evaluation criteria to 
+    generate a single reward value for a prompt state.
     """
     
     def __init__(
@@ -19,7 +20,8 @@ class RewardFunction:
         task_performance_weight: float = 0.6,
         structural_weight: float = 0.3,
         efficiency_weight: float = 0.1,
-        task_performance_fn: Optional[Callable[[PromptState], float]] = None
+        task_performance_fn: Optional[Callable[[PromptState], float]] = None,
+        reward_booster: Optional[Callable[[PromptState, float], float]] = None
     ):
         """
         Initialize a reward function.
@@ -30,11 +32,13 @@ class RewardFunction:
             efficiency_weight: Weight for token efficiency in reward calculation.
             task_performance_fn: Custom function to evaluate task performance.
                 If None, will use metrics["performance"] from the state.
+            reward_booster: Optional function to boost reward based on task-specific criteria.
         """
         self.task_performance_weight = task_performance_weight
         self.structural_weight = structural_weight
         self.efficiency_weight = efficiency_weight
         self.task_performance_fn = task_performance_fn
+        self.reward_booster = reward_booster
         
         # Ensure weights sum to 1.0
         total_weight = task_performance_weight + structural_weight + efficiency_weight
@@ -77,6 +81,11 @@ class RewardFunction:
             self.structural_weight * structural_completeness +
             self.efficiency_weight * token_efficiency
         )
+        
+        # Apply reward booster if available
+        if self.reward_booster:
+            boost = self.reward_booster(state, reward)
+            reward += boost
         
         logger.debug(f"Calculated reward {reward:.4f} for state {state}: "
                      f"performance={performance:.4f}, "
