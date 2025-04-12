@@ -1,0 +1,34 @@
+{
+  "task_type": "code_generation",
+  "templates": [
+    {
+      "name": "Basic Code Generation",
+      "template": "Write {language} code to accomplish the following task:\n\n{content}\n\nCode:",
+      "format": "simple"
+    },
+    {
+      "name": "Expert Code Generation",
+      "template": "Role: Senior {language} Developer\nTask: Create efficient, well-documented code to solve the described problem.\n\nSteps:\n- Analyze the requirements thoroughly\n- Design an approach that balances efficiency and readability\n- Implement the solution with appropriate error handling\n- Add clear comments and documentation\n- Test the code with example inputs\n\nRequirements: {content}\n\nSolution:",
+      "format": "detailed"
+    },
+    {
+      "name": "Function Implementation",
+      "template": "Implement a {language} function with the following signature and requirements:\n\nFunction Name: {function_name}\nParameters: {parameters}\nReturn Value: {return_value}\n\nDescription:\n{content}\n\nImplementation:",
+      "format": "function"
+    }
+  ],
+  "examples": [
+    {
+      "input": "Create a function that takes a list of integers and returns the sum of all even numbers in the list.",
+      "language": "Python",
+      "expected_output": "def sum_even_numbers(numbers):\n    return sum(num for num in numbers if num % 2 == 0)\n\n# Example usage\nprint(sum_even_numbers([1, 2, 3, 4, 5, 6])) # Output: 12",
+      "explanation": "The function correctly implements the requested functionality with a concise Pythonic approach"
+    },
+    {
+      "input": "Write a function to check if a string is a palindrome (reads the same forward and backward), ignoring case and non-alphanumeric characters.",
+      "language": "JavaScript",
+      "expected_output": "function isPalindrome(str) {\n  // Remove non-alphanumeric characters and convert to lowercase\n  const cleanStr = str.toLowerCase().replace(/[^a-z0-9]/g, '');\n  \n  // Check if the string is the same forward and backward\n  const reversedStr = cleanStr.split('').reverse().join('');\n  return cleanStr === reversedStr;\n}\n\n// Example usage\nconsole.log(isPalindrome('A man, a plan, a canal: Panama')); // Output: true\nconsole.log(isPalindrome('race a car')); // Output: false",
+      "explanation": "The function correctly implements palindrome checking with the specified requirements"
+    }
+  ]
+}

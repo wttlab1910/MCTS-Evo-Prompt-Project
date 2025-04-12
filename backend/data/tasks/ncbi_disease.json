@@ -1,0 +1,106 @@
+{
+  "train": [
+    {
+      "tokens": [
+        "Mutation",
+        "in",
+        "the",
+        "APC",
+        "gene",
+        "causes",
+        "colorectal",
+        "cancer",
+        "."
+      ],
+      "ner_tags": [
+        0,
+        0,
+        0,
+        1,
+        2,
+        0,
+        1,
+        2,
+        0
+      ]
+    },
+    {
+      "tokens": [
+        "The",
+        "BRCA1",
+        "gene",
+        "is",
+        "linked",
+        "to",
+        "breast",
+        "cancer",
+        "."
+      ],
+      "ner_tags": [
+        0,
+        1,
+        2,
+        0,
+        0,
+        0,
+        1,
+        2,
+        0
+      ]
+    }
+  ],
+  "validation": [
+    {
+      "tokens": [
+        "Cystic",
+        "fibrosis",
+        "is",
+        "caused",
+        "by",
+        "a",
+        "mutation",
+        "in",
+        "the",
+        "CFTR",
+        "gene",
+        "."
+      ],
+      "ner_tags": [
+        1,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        2,
+        0
+      ]
+    }
+  ],
+  "test": [
+    {
+      "tokens": [
+        "Huntington's",
+        "disease",
+        "is",
+        "a",
+        "neurodegenerative",
+        "disorder",
+        "."
+      ],
+      "ner_tags": [
+        1,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

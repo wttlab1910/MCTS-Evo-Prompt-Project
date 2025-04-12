@@ -1,0 +1,33 @@
+{
+  "task_type": "summarization",
+  "templates": [
+    {
+      "name": "Basic Summarization",
+      "template": "Summarize the following text:\n\n{content}\n\nSummary:",
+      "format": "simple"
+    },
+    {
+      "name": "Comprehensive Summarization",
+      "template": "Role: Content Summarization Specialist\nTask: Create a concise summary of the following text while preserving the key information.\n\nSteps:\n- Read the full content carefully\n- Identify the main topic and key points\n- Organize important details in order of relevance\n- Create a cohesive summary that captures the essence of the original\n\nContent: {content}\n\nSummary:",
+      "format": "detailed"
+    },
+    {
+      "name": "Length-Controlled Summarization",
+      "template": "Summarize the following text in {length} sentences, capturing the most important points:\n\n{content}\n\nSummary ({length} sentences):",
+      "format": "constrained"
+    },
+    {
+      "name": "Extractive Summarization",
+      "template": "Extract the 3-5 most important sentences from the following text that best represent its key points:\n\n{content}\n\nKey Sentences:",
+      "format": "extractive"
+    }
+  ],
+  "examples": [
+    {
+      "input": "The study found that participants who exercised regularly showed improved cognitive function compared to the control group. Specifically, those who engaged in at least 150 minutes of moderate exercise per week demonstrated enhanced memory recall and problem-solving abilities. The researchers noted that the benefits were most pronounced in adults over 65 years of age. Additionally, the type of exercise seemed to matter less than the consistency and duration of physical activity. This research adds to the growing body of evidence suggesting that regular physical exercise may help prevent cognitive decline in aging populations.",
+      "length": "2",
+      "expected_output": "Regular exercise of at least 150 minutes per week improved cognitive function, memory recall, and problem-solving abilities in study participants, with benefits most notable in adults over 65. The consistency and duration of physical activity were more important factors than the type of exercise performed.",
+      "explanation": "This summary condenses the key findings while preserving the essential information about exercise benefits, target group, and important factors."
+    }
+  ]
+}
