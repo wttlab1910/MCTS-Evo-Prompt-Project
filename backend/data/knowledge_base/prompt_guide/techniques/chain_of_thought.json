@@ -1,0 +1,30 @@
+{
+  "name": "Chain of Thought Prompting",
+  "description": "Chain of thought prompting encourages the model to break down complex problems into intermediate steps and reason through them sequentially before arriving at a final answer.",
+  "key_concepts": [
+    "Step-by-step reasoning",
+    "Breaking down complex problems",
+    "Explicit intermediate steps",
+    "Improved accuracy for reasoning tasks"
+  ],
+  "examples": [
+    {
+      "task": "math_problem",
+      "prompt": "Solve the following problem step by step:\n\nIf a shirt costs $15 and is discounted by 20%, then further discounted by an additional 10%, what is the final price?\n\nStep 1: Calculate the price after the first 20% discount.\n$15 × 0.8 = $12 (after 20% discount)\n\nStep 2: Calculate the price after the additional 10% discount.\n$12 × 0.9 = $10.80 (after additional 10% discount)\n\nStep 3: The final price is $10.80.",
+      "explanation": "This prompt demonstrates breaking down a math problem into sequential steps"
+    },
+    {
+      "task": "logical_reasoning",
+      "prompt": "Let's think about this logically:\n\nIf all A are B, and all B are C, then are all A also C?\n\nStep 1: Let's define what we know.\n- All A are B (every element in set A is also in set B)\n- All B are C (every element in set B is also in set C)\n\nStep 2: Let's consider any element in set A.\n- Since all A are B, this element must also be in set B.\n- Since all B are C, any element in set B must also be in set C.\n\nStep 3: Therefore, any element in set A must also be in set C.\n\nConclusion: Yes, all A are also C.",
+      "explanation": "This prompt demonstrates logical reasoning through explicit steps"
+    }
+  ],
+  "best_practices": [
+    "Use phrases like 'Let's think step by step' to initiate the reasoning",
+    "Number or clearly mark each step in the reasoning process",
+    "Break the problem into manageable, logical chunks",
+    "Encourage verification of intermediate results",
+    "Ensure the chain of reasoning leads to a clear final answer"
+  ],
+  "template": "Let's solve this problem step by step:\n\n{content}\n\nStep 1: {first_step_description}\n[reasoning for first step]\n\nStep 2: {second_step_description}\n[reasoning for second step]\n\n[additional steps as needed]\n\nFinal answer: "
+}

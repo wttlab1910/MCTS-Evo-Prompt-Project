@@ -1,0 +1,40 @@
+{
+  "task_type": "classification",
+  "templates": [
+    {
+      "name": "Basic Classification",
+      "template": "Classify the following text into one of these categories: {categories}.\n\nText: {content}\n\nClassification:",
+      "format": "simple"
+    },
+    {
+      "name": "Expert Classification",
+      "template": "As a classification expert, analyze the following text and categorize it into one of these classes: {categories}.\n\nText: {content}\n\nFirst, identify key features in the text relevant to classification.\nThen, determine which category best matches these features.\n\nClassification:",
+      "format": "detailed"
+    },
+    {
+      "name": "Reasoned Classification",
+      "template": "Task: Classify the following text into the most appropriate category from these options: {categories}.\n\nText: {content}\n\nStep 1: Analyze the key characteristics of the text.\nStep 2: Compare these characteristics with the criteria for each category.\nStep 3: Select the most appropriate category based on the strongest matches.\n\nReasoning:\n[Your step-by-step analysis]\n\nFinal Classification:",
+      "format": "reasoned"
+    }
+  ],
+  "examples": [
+    {
+      "input": "I really enjoyed this product. It exceeded my expectations!",
+      "categories": "positive, negative, neutral",
+      "expected_output": "positive",
+      "explanation": "The text expresses clear enjoyment and satisfaction"
+    },
+    {
+      "input": "The package arrived on time and the product was as described.",
+      "categories": "positive, negative, neutral",
+      "expected_output": "neutral",
+      "explanation": "The text states facts without strong sentiment"
+    },
+    {
+      "input": "This movie is about a family who moves to a new town and faces unexpected challenges.",
+      "categories": "comedy, drama, horror, action, documentary",
+      "expected_output": "drama",
+      "explanation": "The description suggests a dramatic narrative focused on personal challenges"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "train": [
+    {
+      "text": "What is the capital of France?",
+      "coarse_label": 0
+    },
+    {
+      "text": "Who invented the telephone?",
+      "coarse_label": 3
+    }
+  ],
+  "test": [
+    {
+      "text": "What is the tallest mountain?",
+      "coarse_label": 0
+    },
+    {
+      "text": "When was the Declaration of Independence signed?",
+      "coarse_label": 5
+    }
+  ]
+}
